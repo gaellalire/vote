@@ -35,6 +35,8 @@ public interface StateService extends Remote {
 
     PollingStation getPollingStation(String name) throws RemoteException;
 
+    List<Citizen> getPollingStationCitizenList(String pollingStationName) throws RemoteException;
+
     List<Citizen> getCitizenList() throws RemoteException;
 
     List<PollingStation> getPollingStationList() throws RemoteException;

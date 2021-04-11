@@ -276,6 +276,13 @@ public class VoteDemo {
         // without private key generation
         // 7 seconds for 500 citizens, 10 jours pour 67 millions
 
+        // 500 -> 2 min
+        // 1000 -> 4 min
+        // 10000 -> 40 min
+        // 100000 -> 400 min
+        // 1000000 -> 4000 min
+        // 67000000 -> 67*4000 min
+
     }
 
 }

@@ -183,13 +183,14 @@ public class PollingStationActor extends RemoteActor implements PollingStationSe
             votingSignatureList.getSignatureBySSNumber().put(ssNumber, votingModulusListSignature);
 
             if (registeredCount == votingSignatureList.getSignatureBySSNumber().size()) {
-                pollingStationState = PollingStationState.WORK_DONE;
                 // first state
                 stateService.setPollingStationData(pollingStationName, votingModulusList, votingSignatureList);
                 // then party (they will check with state data)
                 for (PartyService partyService : partyServices) {
                     partyService.setPollingStationData(pollingStationName, votingModulusList, votingSignatureList);
                 }
+                // allow citizen to finish their vote
+                pollingStationState = PollingStationState.WORK_DONE;
             }
         }
 

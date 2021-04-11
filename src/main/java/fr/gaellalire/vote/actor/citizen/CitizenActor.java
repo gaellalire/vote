@@ -154,7 +154,7 @@ public class CitizenActor {
 
             // TODO degraded mode
 
-            return;
+            throw new VoteException("missing our key in votingModulusList");
         }
         byte[] encoded = votingModulusList.getEncoded();
         os.reset();
@@ -169,21 +169,26 @@ public class CitizenActor {
         VotingSignatureList signatureList = pollingStationService.getSignatureList();
         Map<String, byte[]> signatureBySSNumber = signatureList.getSignatureBySSNumber();
 
-        List<String> ssNumbers = pollingStation.getSsNumbers();
+        List<String> ssNumbers = new ArrayList<String>();
+        List<Citizen> pollingStationCitizenList = stateService.getPollingStationCitizenList(pollingStation.getName());
+        for (Citizen citizen : pollingStationCitizenList) {
+            ssNumbers.add(citizen.getSsNumber());
+        }
+
         if (!signatureBySSNumber.keySet().containsAll(ssNumbers)) {
             // invalid list, should report corruption of polling station
-            return;
+            throw new VoteException("missing ss number in signatureBySSNumber");
         }
 
         VotingModulusList votingModulusList = pollingStationService.getVotingModulusList();
         byte[] encoded = votingModulusList.getEncoded();
 
-        for (String ssNumber : ssNumbers) {
-            byte[] bs = signatureBySSNumber.get(ssNumber);
-            RSAPublicPart rsaPublicPart = rsaTrustSystem.publicPartByModulus(stateService.getCitizen(ssNumber).getPublicKeyModulus());
+        for (Citizen citizen : pollingStationCitizenList) {
+            byte[] bs = signatureBySSNumber.get(citizen.getSsNumber());
+            RSAPublicPart rsaPublicPart = rsaTrustSystem.publicPartByModulus(citizen.getPublicKeyModulus());
             if (!rsaPublicPart.verify(new ByteArrayInputStream(encoded), new ByteArrayInputStream(bs))) {
                 // invalid list, should report corruption of polling station
-                return;
+                throw new VoteException("signatureBySSNumber has bad signature for " + citizen.getSsNumber());
             }
         }
 
@@ -198,7 +203,7 @@ public class CitizenActor {
                 partyName = partyService.getName();
                 partyService.vote(votingPrivatePart.getPublicPart().getModulus(), ballot, ballotSignature);
             } catch (Exception e) {
-                LOGGER.error("Unable to vote at party " + partyName, e);
+                LOGGER.error("Unable to vote at party " + partyName + " with modulus " + votingPrivatePart.getPublicPart().getModulus().toString(16), e);
             }
         }
     }

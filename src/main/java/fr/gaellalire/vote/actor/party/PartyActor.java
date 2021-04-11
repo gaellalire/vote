@@ -115,12 +115,12 @@ public class PartyActor extends RemoteActor implements PartyService {
         CriteriaBuilder criteriaBuilder = entityManager.getCriteriaBuilder();
         CriteriaQuery<fr.gaellalire.vote.actor.party.jpa.PollingStation> query = criteriaBuilder.createQuery(fr.gaellalire.vote.actor.party.jpa.PollingStation.class);
         Root<fr.gaellalire.vote.actor.party.jpa.PollingStation> rootPollingStation = query.from(fr.gaellalire.vote.actor.party.jpa.PollingStation.class);
-        ParameterExpression<String> nameParameter = criteriaBuilder.parameter(String.class, "name");
+        ParameterExpression<String> votePublicModulusParameter = criteriaBuilder.parameter(String.class, "votePublicModulus");
 
-        query.select(rootPollingStation).where(criteriaBuilder.equal(rootPollingStation.join("modulus"), nameParameter));
+        query.select(rootPollingStation).where(criteriaBuilder.equal(rootPollingStation.join("modulus"), votePublicModulusParameter));
 
         TypedQuery<fr.gaellalire.vote.actor.party.jpa.PollingStation> typedQuery = getEntityManager().createQuery(query);
-        typedQuery.setParameter("name", votePublicModulus.toString(16));
+        typedQuery.setParameter("votePublicModulus", votePublicModulus.toString(16));
         fr.gaellalire.vote.actor.party.jpa.PollingStation pollingStation = typedQuery.getSingleResult();
         entityManager.refresh(pollingStation);
 

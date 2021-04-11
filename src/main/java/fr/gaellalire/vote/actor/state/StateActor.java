@@ -35,8 +35,11 @@ import javax.persistence.Persistence;
 import javax.persistence.TypedQuery;
 import javax.persistence.criteria.CriteriaBuilder;
 import javax.persistence.criteria.CriteriaQuery;
+import javax.persistence.criteria.Join;
 import javax.persistence.criteria.ParameterExpression;
 import javax.persistence.criteria.Root;
+import javax.persistence.metamodel.EntityType;
+import javax.persistence.metamodel.Metamodel;
 
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 
@@ -275,16 +278,20 @@ public class StateActor extends RemoteActor implements StateService {
         return convertToServicePollingStation(pollingStation);
     }
 
-    public fr.gaellalire.vote.actor.state.service.Citizen convertToServiceCitizen(final Citizen citizen) {
-        List<Approval> approbatorOf = new ArrayList<Approval>();
-        List<Approval> approvedBy = new ArrayList<Approval>();
-        for (CitizenApproval citizenApproval : citizen.getApprobatorOf()) {
-            approbatorOf.add(new Approval(citizenApproval.getSignature(), citizenApproval.getApproved().getSSNumber(),
-                    fr.gaellalire.vote.actor.state.service.CitizenApprovalType.valueOf(citizenApproval.getApprovalType().name())));
-        }
-        for (CitizenApproval citizenApproval : citizen.getApprovedBy()) {
-            approvedBy.add(new Approval(citizenApproval.getSignature(), citizenApproval.getApprobator().getSSNumber(),
-                    fr.gaellalire.vote.actor.state.service.CitizenApprovalType.valueOf(citizenApproval.getApprovalType().name())));
+    public fr.gaellalire.vote.actor.state.service.Citizen convertToServiceCitizen(final Citizen citizen, final boolean approval) {
+        List<Approval> approbatorOf = null;
+        List<Approval> approvedBy = null;
+        if (approval) {
+            approbatorOf = new ArrayList<Approval>();
+            approvedBy = new ArrayList<Approval>();
+            for (CitizenApproval citizenApproval : citizen.getApprobatorOf()) {
+                approbatorOf.add(new Approval(citizenApproval.getSignature(), citizenApproval.getApproved().getSSNumber(),
+                        fr.gaellalire.vote.actor.state.service.CitizenApprovalType.valueOf(citizenApproval.getApprovalType().name())));
+            }
+            for (CitizenApproval citizenApproval : citizen.getApprovedBy()) {
+                approvedBy.add(new Approval(citizenApproval.getSignature(), citizenApproval.getApprobator().getSSNumber(),
+                        fr.gaellalire.vote.actor.state.service.CitizenApprovalType.valueOf(citizenApproval.getApprovalType().name())));
+            }
         }
 
         return new fr.gaellalire.vote.actor.state.service.Citizen(citizen.getSSNumber(), citizen.getPollingStation().getName(), citizen.getPublicKeyModulus(), approvedBy,
@@ -294,7 +301,7 @@ public class StateActor extends RemoteActor implements StateService {
     public fr.gaellalire.vote.actor.state.service.Citizen getCitizen(final String ssNumber) {
         Citizen citizenBySS = getCitizenBySS(ssNumber);
         getEntityManager().refresh(citizenBySS);
-        return convertToServiceCitizen(citizenBySS);
+        return convertToServiceCitizen(citizenBySS, false);
     }
 
     public static StateActor create(final RSATrustSystem rsaTrustSystem, final String host) throws Exception {
@@ -381,7 +388,35 @@ public class StateActor extends RemoteActor implements StateService {
         List<fr.gaellalire.vote.actor.state.service.Citizen> result = new ArrayList<fr.gaellalire.vote.actor.state.service.Citizen>();
         for (Citizen citizen : resultList) {
             entityManager.refresh(citizen);
-            result.add(convertToServiceCitizen(citizen));
+            result.add(convertToServiceCitizen(citizen, true));
+        }
+        return result;
+    }
+
+    @Override
+    public List<fr.gaellalire.vote.actor.state.service.Citizen> getPollingStationCitizenList(final String pollingStationName) throws RemoteException {
+        EntityManager entityManager = getEntityManager();
+        CriteriaBuilder criteriaBuilder = entityManager.getCriteriaBuilder();
+        CriteriaQuery<Citizen> query = criteriaBuilder.createQuery(Citizen.class);
+
+        Metamodel m = entityManager.getMetamodel();
+        EntityType<Citizen> citizenEntityType = m.entity(Citizen.class);
+
+        Root<Citizen> rootCitizen = query.from(Citizen.class);
+        Join<Citizen, PollingStation> rootPollingStation = rootCitizen.join(citizenEntityType.getSingularAttribute("pollingStation", PollingStation.class));
+
+        ParameterExpression<String> pollingStationNameParameter = criteriaBuilder.parameter(String.class, "pollingStationName");
+
+        query.select(rootCitizen).where(criteriaBuilder.equal(rootPollingStation.get("name"), pollingStationNameParameter));
+
+        TypedQuery<Citizen> typedQuery = getEntityManager().createQuery(query);
+        typedQuery.setParameter("pollingStationName", pollingStationName);
+
+        List<Citizen> resultList = typedQuery.getResultList();
+        List<fr.gaellalire.vote.actor.state.service.Citizen> result = new ArrayList<fr.gaellalire.vote.actor.state.service.Citizen>();
+        for (Citizen citizen : resultList) {
+            entityManager.refresh(citizen);
+            result.add(convertToServiceCitizen(citizen, false));
         }
         return result;
     }
