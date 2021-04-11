@@ -99,11 +99,8 @@ public class CitizenActor {
         vote(ballot, null);
     }
 
-    public void vote(final Ballot ballot, final CitizenListener citizenListener) throws Exception {
+    public BigInteger register() throws Exception {
         VotingMetadata votingMetadata = pollingStationService.register(citizen.getSsNumber(), null);
-        if (citizenListener != null) {
-            citizenListener.registerDone();
-        }
 
         BigInteger pollingStationPublicKeyModulus = votingMetadata.getPollingStationPublicKeyModulus();
 
@@ -115,14 +112,12 @@ public class CitizenActor {
 
             // FIXME the pollingStation may have one different host by voter
             // the URL of pollingStation must be signed and kept by state
-            return;
+            return null;
         }
+        return pollingStationPublicKeyModulus;
+    }
 
-        // WAIT FOR all people to be registered
-        LOGGER.debug("WAIT_FOR_VOTING_KEYS in progress");
-        waitFor(PollingStationState.WAIT_FOR_VOTING_KEYS);
-        LOGGER.debug("WAIT_FOR_VOTING_KEYS done");
-
+    public RSAPrivatePart sendVotingPublicPartModulus(final BigInteger pollingStationPublicKeyModulus) throws Exception {
         // could also be generated in smartcard
         RSAPrivatePart votingPrivatePart = rsaTrustSystem.generatePrivatePart();
 
@@ -141,11 +136,11 @@ public class CitizenActor {
 
         pollingStationService.sendVotingPublicPartModulus(iv, aesKeyRSACrypted, votingPublicPartModulusAESCrypted);
 
-        // WAIT FOR votingModulusList to be ready
-        LOGGER.debug("WAIT_FOR_SIGNATURE in progress");
-        waitFor(PollingStationState.WAIT_FOR_SIGNATURE);
-        LOGGER.debug("WAIT_FOR_SIGNATURE done");
+        return votingPrivatePart;
+    }
 
+    public void sendVotingModulusListSignature(final BigInteger votingPublicPartModulus) throws Exception {
+        ByteArrayOutputStream os = new ByteArrayOutputStream();
         VotingModulusList votingModulusList = pollingStationService.getVotingModulusList();
 
         if (!votingModulusList.getModulus().contains(votingPublicPartModulus)) {
@@ -167,12 +162,9 @@ public class CitizenActor {
         byte[] signature = os.toByteArray();
 
         pollingStationService.sendVotingModulusListSignature(citizen.getSsNumber(), signature);
+    }
 
-        // WAIT FOR all signatures to be sent
-        LOGGER.debug("wait for WORK_DONE");
-        waitFor(PollingStationState.WORK_DONE);
-        LOGGER.debug("WORK_DONE done");
-
+    public void sendVote(final RSAPrivatePart votingPrivatePart, final Ballot ballot) throws Exception {
         // check that all signature are good
         VotingSignatureList signatureList = pollingStationService.getSignatureList();
         Map<String, byte[]> signatureBySSNumber = signatureList.getSignatureBySSNumber();
@@ -182,6 +174,10 @@ public class CitizenActor {
             // invalid list, should report corruption of polling station
             return;
         }
+
+        VotingModulusList votingModulusList = pollingStationService.getVotingModulusList();
+        byte[] encoded = votingModulusList.getEncoded();
+
         for (String ssNumber : ssNumbers) {
             byte[] bs = signatureBySSNumber.get(ssNumber);
             RSAPublicPart rsaPublicPart = rsaTrustSystem.publicPartByModulus(stateService.getCitizen(ssNumber).getPublicKeyModulus());
@@ -193,18 +189,47 @@ public class CitizenActor {
 
         // all clear we finally can send our vote to the party subset of our choice
 
-        os.reset();
+        ByteArrayOutputStream os = new ByteArrayOutputStream();
         votingPrivatePart.sign(new ByteArrayInputStream(ballot.getEncoded()), os);
         byte[] ballotSignature = os.toByteArray();
         for (PartyService partyService : partyServices) {
             String partyName = "unknown";
             try {
                 partyName = partyService.getName();
-                partyService.vote(votingPublicPartModulus, ballot, ballotSignature);
+                partyService.vote(votingPrivatePart.getPublicPart().getModulus(), ballot, ballotSignature);
             } catch (Exception e) {
                 LOGGER.error("Unable to vote at party " + partyName, e);
             }
         }
+    }
+
+    public void vote(final Ballot ballot, final CitizenListener citizenListener) throws Exception {
+        BigInteger pollingStationPublicKeyModulus = register();
+        if (citizenListener != null) {
+            citizenListener.registerDone();
+        }
+
+        // WAIT FOR all people to be registered
+        LOGGER.debug("WAIT_FOR_VOTING_KEYS in progress");
+        waitFor(PollingStationState.WAIT_FOR_VOTING_KEYS);
+        LOGGER.debug("WAIT_FOR_VOTING_KEYS done");
+
+        RSAPrivatePart votingPrivatePart = sendVotingPublicPartModulus(pollingStationPublicKeyModulus);
+
+        // WAIT FOR votingModulusList to be ready
+        LOGGER.debug("WAIT_FOR_SIGNATURE in progress");
+        waitFor(PollingStationState.WAIT_FOR_SIGNATURE);
+        LOGGER.debug("WAIT_FOR_SIGNATURE done");
+
+        sendVotingModulusListSignature(votingPrivatePart.getPublicPart().getModulus());
+
+        // WAIT FOR all signatures to be sent
+        LOGGER.debug("wait for WORK_DONE");
+        waitFor(PollingStationState.WORK_DONE);
+        LOGGER.debug("WORK_DONE done");
+
+        sendVote(votingPrivatePart, ballot);
+
         if (citizenListener != null) {
             citizenListener.voteDone();
         }
@@ -224,8 +249,19 @@ public class CitizenActor {
 
     public static CitizenActor create(final RSATrustSystem rsaTrustSystem, final AESUtils aesUtils, final String stateHost, final String ssNumber, final String pollingStationName,
             final File dataFile) throws Exception {
-        Registry registry = LocateRegistry.getRegistry(stateHost);
-        StateService stateService = (StateService) registry.lookup("State");
+        return create(rsaTrustSystem, aesUtils, stateHost, ssNumber, pollingStationName, dataFile, null);
+    }
+
+    public static CitizenActor create(final RSATrustSystem rsaTrustSystem, final AESUtils aesUtils, final String stateHost, final String ssNumber, final String pollingStationName,
+            final File dataFile, final RMIOverrides citizenOverrides) throws Exception {
+        StateService stateService = null;
+        if (citizenOverrides != null) {
+            stateService = citizenOverrides.getStateService();
+        }
+        if (stateService == null) {
+            Registry registry = LocateRegistry.getRegistry(stateHost);
+            stateService = (StateService) registry.lookup("State");
+        }
 
         RSAPrivatePart ssPrivatePart;
         { // try to restore at least the key, because it takes a lot of time to create
@@ -250,17 +286,29 @@ public class CitizenActor {
         List<PartyService> partyServices = new ArrayList<PartyService>();
         List<Party> partyList = stateService.getPartyList();
         for (Party party : partyList) {
-            Registry partyRegistry = LocateRegistry.getRegistry(party.getHost());
-            partyServices.add((PartyService) partyRegistry.lookup(party.getRmiName()));
+            PartyService partyService = null;
+            if (citizenOverrides != null) {
+                partyService = citizenOverrides.getPartyService(party.getName());
+            }
+            if (partyService == null) {
+                Registry partyRegistry = LocateRegistry.getRegistry(party.getHost());
+                partyService = (PartyService) partyRegistry.lookup(party.getRmiName());
+            }
+            partyServices.add(partyService);
         }
 
         Citizen citizen = stateService.getCitizen(ssNumber);
 
         PollingStation pollingStation = stateService.getPollingStation(pollingStationName);
 
-        Registry pollingStationRegistry = LocateRegistry.getRegistry(pollingStation.getHost());
-
-        PollingStationService pollingStationService = (PollingStationService) pollingStationRegistry.lookup(pollingStation.getRmiName());
+        PollingStationService pollingStationService = null;
+        if (citizenOverrides != null) {
+            pollingStationService = citizenOverrides.getPollingStationService(pollingStationName);
+        }
+        if (pollingStationService == null) {
+            Registry pollingStationRegistry = LocateRegistry.getRegistry(pollingStation.getHost());
+            pollingStationService = (PollingStationService) pollingStationRegistry.lookup(pollingStation.getRmiName());
+        }
 
         if (dataFile != null) {
             CitizenActorData citizenActorData = new CitizenActorData(stateHost, ssNumber, ssPrivatePart);
@@ -276,6 +324,10 @@ public class CitizenActor {
     }
 
     public static CitizenActor restore(final RSATrustSystem rsaTrustSystem, final AESUtils aesUtils, final File dataFile) throws Exception {
+        return restore(rsaTrustSystem, aesUtils, dataFile, null);
+    }
+
+    public static CitizenActor restore(final RSATrustSystem rsaTrustSystem, final AESUtils aesUtils, final File dataFile, final RMIOverrides citizenOverrides) throws Exception {
 
         CitizenActorData citizenActorData;
         ObjectInputStream objectInputStream = new ObjectInputStream(new FileInputStream(dataFile));
@@ -285,14 +337,27 @@ public class CitizenActor {
             objectInputStream.close();
         }
 
-        Registry registry = LocateRegistry.getRegistry(citizenActorData.getStateHost());
-        StateService stateService = (StateService) registry.lookup("State");
+        StateService stateService = null;
+        if (citizenOverrides != null) {
+            stateService = citizenOverrides.getStateService();
+        }
+        if (stateService == null) {
+            Registry registry = LocateRegistry.getRegistry(citizenActorData.getStateHost());
+            stateService = (StateService) registry.lookup("State");
+        }
 
         List<PartyService> partyServices = new ArrayList<PartyService>();
         List<Party> partyList = stateService.getPartyList();
         for (Party party : partyList) {
-            Registry partyRegistry = LocateRegistry.getRegistry(party.getHost());
-            partyServices.add((PartyService) partyRegistry.lookup(party.getRmiName()));
+            PartyService partyService = null;
+            if (citizenOverrides != null) {
+                partyService = citizenOverrides.getPartyService(party.getName());
+            }
+            if (partyService == null) {
+                Registry partyRegistry = LocateRegistry.getRegistry(party.getHost());
+                partyService = (PartyService) partyRegistry.lookup(party.getRmiName());
+            }
+            partyServices.add(partyService);
         }
 
         Citizen citizen = stateService.getCitizen(citizenActorData.getSsNumber());
@@ -301,9 +366,14 @@ public class CitizenActor {
 
         PollingStation pollingStation = stateService.getPollingStation(pollingStationName);
 
-        Registry pollingStationRegistry = LocateRegistry.getRegistry(pollingStation.getHost());
-
-        PollingStationService pollingStationService = (PollingStationService) pollingStationRegistry.lookup(pollingStation.getRmiName());
+        PollingStationService pollingStationService = null;
+        if (citizenOverrides != null) {
+            pollingStationService = citizenOverrides.getPollingStationService(pollingStationName);
+        }
+        if (pollingStationService == null) {
+            Registry pollingStationRegistry = LocateRegistry.getRegistry(pollingStation.getHost());
+            pollingStationService = (PollingStationService) pollingStationRegistry.lookup(pollingStation.getRmiName());
+        }
 
         RSAPrivatePart ssPrivatePart = citizenActorData.getSsPrivatePart();
 

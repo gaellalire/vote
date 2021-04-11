@@ -17,11 +17,14 @@
 package fr.gaellalire.vote;
 
 import java.io.File;
+import java.math.BigInteger;
 import java.rmi.registry.LocateRegistry;
 import java.security.SecureRandom;
 import java.security.Security;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.slf4j.Logger;
@@ -29,15 +32,65 @@ import org.slf4j.LoggerFactory;
 
 import fr.gaellalire.vote.actor.citizen.CitizenActor;
 import fr.gaellalire.vote.actor.citizen.CitizenListener;
+import fr.gaellalire.vote.actor.citizen.RMIOverrides;
 import fr.gaellalire.vote.actor.party.PartyActor;
+import fr.gaellalire.vote.actor.party.service.PartyService;
 import fr.gaellalire.vote.actor.pooling_station.PollingStationActor;
+import fr.gaellalire.vote.actor.pooling_station.service.PollingStationService;
+import fr.gaellalire.vote.actor.pooling_station.service.PollingStationState;
 import fr.gaellalire.vote.actor.state.StateActor;
+import fr.gaellalire.vote.actor.state.service.StateService;
 import fr.gaellalire.vote.trust.aes.AESUtils;
+import fr.gaellalire.vote.trust.rsa.RSAPrivatePart;
 import fr.gaellalire.vote.trust.rsa.RSATrustSystem;
 
 public class VoteDemo {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(VoteDemo.class);
+
+    /**
+     * Allow to test with a lot a citizen without having unlimited available ports
+     * @author Gael Lalire
+     */
+    private static class DemoRMIOverrides implements RMIOverrides {
+
+        private StateService stateService;
+
+        private Map<String, PollingStationService> pollingStationServiceByName = new HashMap<String, PollingStationService>();
+
+        private Map<String, PartyService> partyServiceByName = new HashMap<String, PartyService>();
+
+        @Override
+        public StateService getStateService() {
+            return stateService;
+        }
+
+        @Override
+        public PollingStationService getPollingStationService(final String pollingStationName) {
+            return pollingStationServiceByName.get(pollingStationName);
+        }
+
+        @Override
+        public PartyService getPartyService(final String partyName) {
+            return partyServiceByName.get(partyName);
+        }
+
+    }
+
+    private static class VoteState {
+
+        private CitizenActor citizenActor;
+
+        private BigInteger pollingStationPublicKeyModulus;
+
+        private RSAPrivatePart votingPrivatePart;
+
+        public VoteState(final CitizenActor citizenActor, final BigInteger pollingStationPublicKeyModulus) {
+            this.citizenActor = citizenActor;
+            this.pollingStationPublicKeyModulus = pollingStationPublicKeyModulus;
+        }
+
+    }
 
     public static void main(final String[] args) throws Exception {
         Security.addProvider(new BouncyCastleProvider());
@@ -55,13 +108,16 @@ public class VoteDemo {
 
         int partyNumber = 5;
         int pollingStationNumber = 3;
-        long citizenNumber = 50;
+        int citizenThread = 5;
+        long citizenNumber = 500;
 
         RSATrustSystem rsaTrustSystem = new RSATrustSystem(random);
         AESUtils aesUtils = new AESUtils(random);
 
+        DemoRMIOverrides overrides = new DemoRMIOverrides();
+
         LOGGER.info("Creating state");
-        StateActor.create(rsaTrustSystem, "localhost");
+        overrides.stateService = StateActor.create(rsaTrustSystem, "localhost");
         LOGGER.info("State created");
 
         LOGGER.info("Creating {} parties", partyNumber);
@@ -69,7 +125,9 @@ public class VoteDemo {
         for (int i = 0; i < partyNumber; i++) {
             File partyActorDataFile = new File(targetFile, "ca" + i + ".data");
             partyActorDataFile.delete();
-            partyActors.add(PartyActor.create(rsaTrustSystem, aesUtils, "localhost", String.valueOf(i), partyActorDataFile));
+            PartyActor partyActor = PartyActor.create(rsaTrustSystem, aesUtils, "localhost", String.valueOf(i), partyActorDataFile);
+            partyActors.add(partyActor);
+            overrides.partyServiceByName.put(partyActor.getName(), partyActor);
         }
         LOGGER.info("Parties created");
 
@@ -80,7 +138,9 @@ public class VoteDemo {
         for (int i = 0; i < pollingStationNumber; i++) {
             File privateKeyFile = new File(targetFile, "ps" + i + ".key");
             privateKeyFile.delete();
-            pollingStationActors.add(PollingStationActor.create(rsaTrustSystem, aesUtils, "localhost", String.valueOf(i), privateKeyFile));
+            PollingStationActor pollingStationActor = PollingStationActor.create(rsaTrustSystem, aesUtils, "localhost", "localhost", String.valueOf(i), privateKeyFile, overrides);
+            pollingStationActors.add(pollingStationActor);
+            overrides.pollingStationServiceByName.put(pollingStationActor.getName(), pollingStationActor);
         }
         LOGGER.info("Polling stations created");
 
@@ -89,7 +149,7 @@ public class VoteDemo {
         for (int i = 0; i < citizenNumber; i++) {
             File citizenActorDataFile = new File(targetFile, "ca" + i + ".data");
             // citizenActorDataFile.delete();
-            CitizenActor.create(rsaTrustSystem, aesUtils, "localhost", "SS" + i, String.valueOf(i % pollingStationNumber), citizenActorDataFile);
+            CitizenActor.create(rsaTrustSystem, aesUtils, "localhost", "SS" + i, String.valueOf(i % pollingStationNumber), citizenActorDataFile, overrides);
         }
         LOGGER.info("Citizens created");
 
@@ -132,17 +192,43 @@ public class VoteDemo {
             }
         };
 
-        for (int i = 0; i < citizenNumber; i++) {
-            File citizenActorDataFile = new File(targetFile, "ca" + i + ".data");
-            final CitizenActor citizenActor = CitizenActor.restore(rsaTrustSystem, aesUtils, citizenActorDataFile);
-            new Thread("citizen" + i) {
+        // we cannot have a thread per citizen, it costs too much memory
+        for (int i = 0; i < citizenThread; i++) {
+            int finalI = i;
+            new Thread("citizen-thread" + i) {
                 public void run() {
                     try {
-                        Judgment[] judgments = new Judgment[partyNumber];
-                        for (int j = 0; j < partyNumber; j++) {
-                            judgments[j] = Judgment.values()[(int) (random.nextDouble() * (Judgment.values().length - 1))];
+
+                        List<VoteState> voteStates = new ArrayList<VoteState>();
+
+                        for (int j = finalI; j < citizenNumber; j += citizenThread) {
+                            File citizenActorDataFile = new File(targetFile, "ca" + j + ".data");
+                            final CitizenActor citizenActor = CitizenActor.restore(rsaTrustSystem, aesUtils, citizenActorDataFile, overrides);
+                            BigInteger pollingStationPublicKeyModulus = citizenActor.register();
+                            citizenListener.registerDone();
+                            voteStates.add(new VoteState(citizenActor, pollingStationPublicKeyModulus));
                         }
-                        citizenActor.vote(new Ballot(judgments), citizenListener);
+
+                        for (VoteState voteState : voteStates) {
+                            voteState.citizenActor.waitFor(PollingStationState.WAIT_FOR_VOTING_KEYS);
+                            voteState.votingPrivatePart = voteState.citizenActor.sendVotingPublicPartModulus(voteState.pollingStationPublicKeyModulus);
+                        }
+
+                        for (VoteState voteState : voteStates) {
+                            voteState.citizenActor.waitFor(PollingStationState.WAIT_FOR_SIGNATURE);
+                            voteState.citizenActor.sendVotingModulusListSignature(voteState.votingPrivatePart.getPublicPart().getModulus());
+                        }
+
+                        for (VoteState voteState : voteStates) {
+                            voteState.citizenActor.waitFor(PollingStationState.WORK_DONE);
+                            Judgment[] judgments = new Judgment[partyNumber];
+                            for (int j = 0; j < partyNumber; j++) {
+                                judgments[j] = Judgment.values()[(int) (random.nextDouble() * (Judgment.values().length - 1))];
+                            }
+
+                            voteState.citizenActor.sendVote(voteState.votingPrivatePart, new Ballot(judgments));
+                            citizenListener.voteDone();
+                        }
                     } catch (Exception e) {
                         LOGGER.error("Unable to vote", e);
                     }

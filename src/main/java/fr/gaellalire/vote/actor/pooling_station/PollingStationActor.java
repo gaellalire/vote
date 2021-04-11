@@ -43,6 +43,7 @@ import org.bouncycastle.jce.provider.BouncyCastleProvider;
 
 import fr.gaellalire.vestige.spi.trust.TrustException;
 import fr.gaellalire.vote.actor.RemoteActor;
+import fr.gaellalire.vote.actor.citizen.RMIOverrides;
 import fr.gaellalire.vote.actor.party.service.PartyService;
 import fr.gaellalire.vote.actor.pooling_station.service.PollingStationService;
 import fr.gaellalire.vote.actor.pooling_station.service.PollingStationState;
@@ -97,6 +98,10 @@ public class PollingStationActor extends RemoteActor implements PollingStationSe
         votingModulusList = new VotingModulusList();
         votingSignatureList = new VotingSignatureList();
         pollingStationState = PollingStationState.WAIT_FOR_REGISTERING;
+    }
+
+    public String getName() {
+        return pollingStationName;
     }
 
     public void endRegisteringPeriod() {
@@ -205,10 +210,22 @@ public class PollingStationActor extends RemoteActor implements PollingStationSe
         return votingSignatureList;
     }
 
-    public static PollingStationActor create(final RSATrustSystem rsaTrustSystem, final AESUtils aesUtils, final String host, final String pollingStationName,
-            final File privateKeyFile) throws Exception {
-        Registry registry = LocateRegistry.getRegistry(host);
-        StateService stateService = (StateService) registry.lookup("State");
+    public static PollingStationActor create(final RSATrustSystem rsaTrustSystem, final AESUtils aesUtils, final String stateHost, final String host,
+            final String pollingStationName, final File privateKeyFile) throws Exception {
+        return create(rsaTrustSystem, aesUtils, stateHost, host, pollingStationName, privateKeyFile, null);
+    }
+
+    public static PollingStationActor create(final RSATrustSystem rsaTrustSystem, final AESUtils aesUtils, final String stateHost, final String host,
+            final String pollingStationName, final File privateKeyFile, final RMIOverrides rmiOverrides) throws Exception {
+
+        StateService stateService = null;
+        if (rmiOverrides != null) {
+            stateService = rmiOverrides.getStateService();
+        }
+        if (stateService == null) {
+            Registry registry = LocateRegistry.getRegistry(stateHost);
+            stateService = (StateService) registry.lookup("State");
+        }
 
         EntityManagerFactory entityManagerFactory = Persistence.createEntityManagerFactory("pollingStationPersistenceUnit",
                 Collections.singletonMap("hibernate.connection.url", "jdbc:h2:./db/pollingStation" + pollingStationName));
@@ -216,7 +233,14 @@ public class PollingStationActor extends RemoteActor implements PollingStationSe
         List<Party> partyList = stateService.getPartyList();
         List<PartyService> partyServices = new ArrayList<PartyService>(partyList.size());
         for (Party party : partyList) {
-            PartyService partyService = (PartyService) registry.lookup(party.getRmiName());
+            PartyService partyService = null;
+            if (rmiOverrides != null) {
+                partyService = rmiOverrides.getPartyService(party.getName());
+            }
+            if (partyService == null) {
+                Registry partyRegistry = LocateRegistry.getRegistry(party.getHost());
+                partyService = (PartyService) partyRegistry.lookup(party.getRmiName());
+            }
             partyServices.add(partyService);
         }
 
@@ -252,6 +276,8 @@ public class PollingStationActor extends RemoteActor implements PollingStationSe
 
         PollingStationActor pollingStationActor = new PollingStationActor(entityManagerFactory, rsaPrivatePart, aesUtils, pollingStationName, stateService, partyServices,
                 rsaTrustSystem);
+        Registry registry = LocateRegistry.getRegistry(host);
+
         registry.rebind("PollingStation" + pollingStationName, pollingStationActor);
         return pollingStationActor;
     }
@@ -260,6 +286,7 @@ public class PollingStationActor extends RemoteActor implements PollingStationSe
         Security.addProvider(new BouncyCastleProvider());
 
         int argPos = 0;
+        String stateHost = args[argPos++];
         String host = args[argPos++];
         String pollingStationName = args[argPos++];
         String privateKeyFileName = args[argPos++];
@@ -269,7 +296,7 @@ public class PollingStationActor extends RemoteActor implements PollingStationSe
         AESUtils aesUtils = new AESUtils(random);
 
         File privateKeyFile = new File(privateKeyFileName);
-        create(rsaTrustSystem, aesUtils, host, pollingStationName, privateKeyFile);
+        create(rsaTrustSystem, aesUtils, stateHost, host, pollingStationName, privateKeyFile);
 
     }
 

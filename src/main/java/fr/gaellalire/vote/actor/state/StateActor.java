@@ -134,7 +134,7 @@ public class StateActor extends RemoteActor implements StateService {
         List<fr.gaellalire.vote.actor.state.service.Party> result = new ArrayList<fr.gaellalire.vote.actor.state.service.Party>();
         for (Party party : resultList) {
             entityManager.refresh(party);
-            result.add(new fr.gaellalire.vote.actor.state.service.Party(party.getHost(), party.getRmiName()));
+            result.add(new fr.gaellalire.vote.actor.state.service.Party(party.getName(), party.getHost(), party.getRmiName()));
         }
         return result;
     }

@@ -14,38 +14,21 @@
  * limitations under the License.
  */
 
-package fr.gaellalire.vote.actor.state.service;
+package fr.gaellalire.vote.actor.citizen;
 
-import java.io.Serializable;
+import fr.gaellalire.vote.actor.party.service.PartyService;
+import fr.gaellalire.vote.actor.pooling_station.service.PollingStationService;
+import fr.gaellalire.vote.actor.state.service.StateService;
 
 /**
  * @author Gael Lalire
  */
-public class Party implements Serializable {
+public interface RMIOverrides {
 
-    private static final long serialVersionUID = 1475287596274556996L;
+    StateService getStateService();
 
-    private String name;
+    PollingStationService getPollingStationService(String pollingStationName);
 
-    private String host;
+    PartyService getPartyService(String partyName);
 
-    private String rmiName;
-
-    public Party(final String name, final String host, final String rmiName) {
-        this.name = name;
-        this.host = host;
-        this.rmiName = rmiName;
-    }
-
-    public String getName() {
-        return name;
-    }
-
-    public String getHost() {
-        return host;
-    }
-
-    public String getRmiName() {
-        return rmiName;
-    }
 }
