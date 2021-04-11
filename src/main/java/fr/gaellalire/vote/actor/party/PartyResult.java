@@ -43,6 +43,8 @@ public class PartyResult implements Comparable<PartyResult> {
 
     @Override
     public int compareTo(final PartyResult o) {
+        // https://scienceetonnante.com/2016/10/21/reformons-lelection-presidentielle/
+
         if (judgment.ordinal() != o.judgment.ordinal()) {
             // higher judgment win
             return o.judgment.ordinal() - judgment.ordinal();

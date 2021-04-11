@@ -23,8 +23,6 @@ import java.io.FileOutputStream;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.math.BigInteger;
-import java.net.InetAddress;
-import java.rmi.Naming;
 import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
@@ -45,6 +43,8 @@ import javax.persistence.criteria.ParameterExpression;
 import javax.persistence.criteria.Root;
 
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import fr.gaellalire.vestige.spi.trust.TrustException;
 import fr.gaellalire.vote.Ballot;
@@ -67,6 +67,8 @@ import fr.gaellalire.vote.trust.rsa.RSATrustSystem;
  * @author Gael Lalire
  */
 public class PartyActor extends RemoteActor implements PartyService {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(PartyActor.class);
 
     private static final long serialVersionUID = 3900801952876087750L;
 
@@ -157,8 +159,6 @@ public class PartyActor extends RemoteActor implements PartyService {
         Registry registry = LocateRegistry.getRegistry(host);
         StateService stateService = (StateService) registry.lookup("State");
 
-        String url = "rmi://" + InetAddress.getLocalHost().getHostAddress() + "/Party" + partyName;
-
         EntityManagerFactory entityManagerFactory = Persistence.createEntityManagerFactory("partyPersistenceUnit",
                 Collections.singletonMap("hibernate.connection.url", "jdbc:h2:./db/party" + partyName));
 
@@ -191,7 +191,7 @@ public class PartyActor extends RemoteActor implements PartyService {
         }
 
         PartyActor partyActor = new PartyActor(entityManagerFactory, rsaPrivatePart, partyName, stateService, rsaTrustSystem);
-        Naming.rebind(url, partyActor);
+        registry.rebind("Party" + partyName, partyActor);
         return partyActor;
     }
 
@@ -324,7 +324,7 @@ public class PartyActor extends RemoteActor implements PartyService {
         long currentIndiceNumber = 0;
         List<PartyResult> partyResults = new ArrayList<PartyResult>();
         List<VoteResult> currentIndiceVoteResults = new ArrayList<VoteResult>();
-        System.out.println(resultList);
+        LOGGER.info("{}", resultList);
         for (VoteResult voteResult : resultList) {
             if (currentIndice != voteResult.getIndice()) {
                 partyResults.add(getPartyResult(currentIndice, currentIndiceVoteResults, currentIndiceNumber));
@@ -337,10 +337,7 @@ public class PartyActor extends RemoteActor implements PartyService {
         }
         partyResults.add(getPartyResult(currentIndice, currentIndiceVoteResults, currentIndiceNumber));
         Collections.sort(partyResults);
-        System.out.println(partyResults);
-
-        // https://scienceetonnante.com/2016/10/21/reformons-lelection-presidentielle/
-
+        LOGGER.info("{}", partyResults);
     }
 
     @Override

@@ -24,8 +24,6 @@ import java.io.FileOutputStream;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.math.BigInteger;
-import java.net.InetAddress;
-import java.rmi.Naming;
 import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
@@ -212,8 +210,6 @@ public class PollingStationActor extends RemoteActor implements PollingStationSe
         Registry registry = LocateRegistry.getRegistry(host);
         StateService stateService = (StateService) registry.lookup("State");
 
-        String url = "rmi://" + InetAddress.getLocalHost().getHostAddress() + "/PollingStation" + pollingStationName;
-
         EntityManagerFactory entityManagerFactory = Persistence.createEntityManagerFactory("pollingStationPersistenceUnit",
                 Collections.singletonMap("hibernate.connection.url", "jdbc:h2:./db/pollingStation" + pollingStationName));
 
@@ -256,7 +252,7 @@ public class PollingStationActor extends RemoteActor implements PollingStationSe
 
         PollingStationActor pollingStationActor = new PollingStationActor(entityManagerFactory, rsaPrivatePart, aesUtils, pollingStationName, stateService, partyServices,
                 rsaTrustSystem);
-        Naming.rebind(url, pollingStationActor);
+        registry.rebind("PollingStation" + pollingStationName, pollingStationActor);
         return pollingStationActor;
     }
 

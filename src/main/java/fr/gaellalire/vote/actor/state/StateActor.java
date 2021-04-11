@@ -20,8 +20,9 @@ import java.io.ByteArrayInputStream;
 import java.io.UnsupportedEncodingException;
 import java.math.BigInteger;
 import java.net.InetAddress;
-import java.rmi.Naming;
 import java.rmi.RemoteException;
+import java.rmi.registry.LocateRegistry;
+import java.rmi.registry.Registry;
 import java.security.SecureRandom;
 import java.security.Security;
 import java.util.ArrayList;
@@ -286,8 +287,8 @@ public class StateActor extends RemoteActor implements StateService {
                     fr.gaellalire.vote.actor.state.service.CitizenApprovalType.valueOf(citizenApproval.getApprovalType().name())));
         }
 
-        return new fr.gaellalire.vote.actor.state.service.Citizen(citizen.getSSNumber(), citizen.getPollingStation().getName(), citizen.getPublicKeyModulus(),
-                approvedBy, approbatorOf);
+        return new fr.gaellalire.vote.actor.state.service.Citizen(citizen.getSSNumber(), citizen.getPollingStation().getName(), citizen.getPublicKeyModulus(), approvedBy,
+                approbatorOf);
     }
 
     public fr.gaellalire.vote.actor.state.service.Citizen getCitizen(final String ssNumber) {
@@ -297,12 +298,12 @@ public class StateActor extends RemoteActor implements StateService {
     }
 
     public static StateActor create(final RSATrustSystem rsaTrustSystem, final String host) throws Exception {
-        String url = "rmi://" + InetAddress.getLocalHost().getHostAddress() + "/State";
+        Registry registry = LocateRegistry.getRegistry(host);
 
         EntityManagerFactory entityManagerFactory = Persistence.createEntityManagerFactory("statePersistenceUnit");
 
         StateActor stateActor = new StateActor(entityManagerFactory, rsaTrustSystem);
-        Naming.rebind(url, stateActor);
+        registry.rebind("State", stateActor);
         return stateActor;
     }
 
