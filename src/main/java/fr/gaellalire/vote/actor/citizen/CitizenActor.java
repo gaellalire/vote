@@ -69,6 +69,8 @@ public class CitizenActor {
     // should be kept in smartcard (maybe knox ?)
     private RSAPrivatePart ssPrivatePart;
 
+    private RSAPrivatePart votingPrivatePart;
+
     private RSATrustSystem rsaTrustSystem;
 
     private AESUtils aesUtils;
@@ -83,9 +85,11 @@ public class CitizenActor {
 
     private List<PartyService> partyServices;
 
-    public CitizenActor(final RSAPrivatePart ssPrivatePart, final RSATrustSystem rsaTrustSystem, final AESUtils aesUtils, final Citizen citizen,
-            final PollingStation pollingStation, final StateService stateService, final PollingStationService pollingStationService, final List<PartyService> partyServices) {
+    public CitizenActor(final RSAPrivatePart ssPrivatePart, final RSAPrivatePart votingPrivatePart, final RSATrustSystem rsaTrustSystem, final AESUtils aesUtils,
+            final Citizen citizen, final PollingStation pollingStation, final StateService stateService, final PollingStationService pollingStationService,
+            final List<PartyService> partyServices) {
         this.ssPrivatePart = ssPrivatePart;
+        this.votingPrivatePart = votingPrivatePart;
         this.rsaTrustSystem = rsaTrustSystem;
         this.aesUtils = aesUtils;
         this.citizen = citizen;
@@ -119,7 +123,6 @@ public class CitizenActor {
 
     public RSAPrivatePart sendVotingPublicPartModulus(final BigInteger pollingStationPublicKeyModulus) throws Exception {
         // could also be generated in smartcard
-        RSAPrivatePart votingPrivatePart = rsaTrustSystem.generatePrivatePart();
 
         RSAPublicPart votingPublicPart = votingPrivatePart.getPublicPart();
         RSAPublicPart pollingStationPublicPart = rsaTrustSystem.publicPartByModulus(pollingStationPublicKeyModulus);
@@ -269,18 +272,24 @@ public class CitizenActor {
         }
 
         RSAPrivatePart ssPrivatePart;
+        RSAPrivatePart votingPrivatePart;
         { // try to restore at least the key, because it takes a lot of time to create
             try {
                 ObjectInputStream objectInputStream = new ObjectInputStream(new FileInputStream(dataFile));
                 try {
                     CitizenActorData citizenActorData = (CitizenActorData) objectInputStream.readObject();
                     ssPrivatePart = citizenActorData.getSsPrivatePart();
+                    votingPrivatePart = citizenActorData.getVotingPrivatePart();
+                    if (votingPrivatePart == null) {
+                        votingPrivatePart = rsaTrustSystem.generatePrivatePart();
+                    }
                 } finally {
                     objectInputStream.close();
                 }
             } catch (Exception e) {
                 // sadly we have to create a key
                 ssPrivatePart = rsaTrustSystem.generatePrivatePart();
+                votingPrivatePart = rsaTrustSystem.generatePrivatePart();
             }
         }
 
@@ -316,7 +325,7 @@ public class CitizenActor {
         }
 
         if (dataFile != null) {
-            CitizenActorData citizenActorData = new CitizenActorData(stateHost, ssNumber, ssPrivatePart);
+            CitizenActorData citizenActorData = new CitizenActorData(stateHost, ssNumber, ssPrivatePart, votingPrivatePart);
             ObjectOutputStream objectOutputStream = new ObjectOutputStream(new FileOutputStream(dataFile));
             try {
                 objectOutputStream.writeObject(citizenActorData);
@@ -325,7 +334,7 @@ public class CitizenActor {
             }
         }
 
-        return new CitizenActor(ssPrivatePart, rsaTrustSystem, aesUtils, citizen, pollingStation, stateService, pollingStationService, partyServices);
+        return new CitizenActor(ssPrivatePart, votingPrivatePart, rsaTrustSystem, aesUtils, citizen, pollingStation, stateService, pollingStationService, partyServices);
     }
 
     public static CitizenActor restore(final RSATrustSystem rsaTrustSystem, final AESUtils aesUtils, final File dataFile) throws Exception {
@@ -381,8 +390,9 @@ public class CitizenActor {
         }
 
         RSAPrivatePart ssPrivatePart = citizenActorData.getSsPrivatePart();
+        RSAPrivatePart votingPrivatePart = citizenActorData.getVotingPrivatePart();
 
-        return new CitizenActor(ssPrivatePart, rsaTrustSystem, aesUtils, citizen, pollingStation, stateService, pollingStationService, partyServices);
+        return new CitizenActor(ssPrivatePart, votingPrivatePart, rsaTrustSystem, aesUtils, citizen, pollingStation, stateService, pollingStationService, partyServices);
     }
 
     public static void main(final String[] args) throws Exception {

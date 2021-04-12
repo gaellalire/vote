@@ -26,6 +26,7 @@ import java.rmi.registry.Registry;
 import java.security.SecureRandom;
 import java.security.Security;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -393,8 +394,18 @@ public class StateActor extends RemoteActor implements StateService {
         return result;
     }
 
+    private volatile boolean voteInitiated = false;
+
     @Override
     public List<fr.gaellalire.vote.actor.state.service.Citizen> getPollingStationCitizenList(final String pollingStationName) throws RemoteException {
+        if (voteInitiated) {
+            synchronized (citizenListByPollingStationNameCache) {
+                List<fr.gaellalire.vote.actor.state.service.Citizen> list = citizenListByPollingStationNameCache.get(pollingStationName);
+                if (list != null) {
+                    return list;
+                }
+            }
+        }
         EntityManager entityManager = getEntityManager();
         CriteriaBuilder criteriaBuilder = entityManager.getCriteriaBuilder();
         CriteriaQuery<Citizen> query = criteriaBuilder.createQuery(Citizen.class);
@@ -418,7 +429,18 @@ public class StateActor extends RemoteActor implements StateService {
             entityManager.refresh(citizen);
             result.add(convertToServiceCitizen(citizen, false));
         }
+        if (voteInitiated) {
+            synchronized (citizenListByPollingStationNameCache) {
+                citizenListByPollingStationNameCache.put(pollingStationName, result);
+            }
+        }
         return result;
+    }
+
+    private Map<String, List<fr.gaellalire.vote.actor.state.service.Citizen>> citizenListByPollingStationNameCache = new HashMap<String, List<fr.gaellalire.vote.actor.state.service.Citizen>>();
+
+    public void initVote() {
+        voteInitiated = true;
     }
 
 }

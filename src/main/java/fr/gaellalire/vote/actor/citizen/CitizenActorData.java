@@ -34,10 +34,13 @@ public class CitizenActorData implements Serializable {
     // should be kept in smartcard (maybe knox ?)
     private RSAPrivatePart ssPrivatePart;
 
-    public CitizenActorData(final String stateHost, final String ssNumber, final RSAPrivatePart ssPrivatePart) {
+    private RSAPrivatePart votingPrivatePart;
+
+    public CitizenActorData(final String stateHost, final String ssNumber, final RSAPrivatePart ssPrivatePart, final RSAPrivatePart votingPrivatePart) {
         this.stateHost = stateHost;
         this.ssNumber = ssNumber;
         this.ssPrivatePart = ssPrivatePart;
+        this.votingPrivatePart = votingPrivatePart;
     }
 
     public String getStateHost() {
@@ -50,5 +53,9 @@ public class CitizenActorData implements Serializable {
 
     public RSAPrivatePart getSsPrivatePart() {
         return ssPrivatePart;
+    }
+
+    public RSAPrivatePart getVotingPrivatePart() {
+        return votingPrivatePart;
     }
 }

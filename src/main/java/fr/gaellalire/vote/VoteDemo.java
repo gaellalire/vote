@@ -117,7 +117,8 @@ public class VoteDemo {
         DemoRMIOverrides overrides = new DemoRMIOverrides();
 
         LOGGER.info("Creating state");
-        overrides.stateService = StateActor.create(rsaTrustSystem, "localhost");
+        StateActor stateActor = StateActor.create(rsaTrustSystem, "localhost");
+        overrides.stateService = stateActor;
         LOGGER.info("State created");
 
         LOGGER.info("Creating {} parties", partyNumber);
@@ -160,6 +161,10 @@ public class VoteDemo {
             partyActor.init();
         }
         LOGGER.info("Parties data initiated");
+
+        LOGGER.info("Initiating vote");
+        stateActor.initVote();
+        LOGGER.info("Vote initiated");
 
         // 6 million -> 9 seconds
         // 60 -> 90 seconds ?
@@ -276,13 +281,8 @@ public class VoteDemo {
         // without private key generation
         // 7 seconds for 500 citizens, 10 jours pour 67 millions
 
-        // 500 -> 2 min
-        // 1000 -> 4 min
-        // 10000 -> 40 min
-        // 100000 -> 400 min
-        // 1000000 -> 4000 min
-        // 67000000 -> 67*4000 min
-
+        // vote time
+        // 16 seconds for 500 citizens : 20 jours pour 67 millions
     }
 
 }

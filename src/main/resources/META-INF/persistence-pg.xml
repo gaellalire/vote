@@ -16,9 +16,11 @@
     <exclude-unlisted-classes>true</exclude-unlisted-classes>
 
     <properties>
-      <property name="connection.driver_class" value="org.h2.Driver" />
-      <property name="hibernate.connection.url" value="jdbc:h2:./db/state" />
-      <property name="hibernate.dialect" value="org.hibernate.dialect.H2Dialect" />
+      <property name="connection.driver_class" value="org.postgresql.Driver" />
+      <property name="hibernate.connection.url" value="jdbc:postgresql://localhost:5432/statedb" />
+      <property name="hibernate.connection.username" value="postgres" />
+      <property name="hibernate.connection.password" value="mysecretpassword" />
+      <property name="hibernate.dialect" value="org.hibernate.dialect.PostgreSQLDialect" />
       <property name="hibernate.hbm2ddl.auto" value="create-drop" />
       <property name="hibernate.show_sql" value="false" />
       <property name="hibernate.connection.pool_size" value="1200" />
