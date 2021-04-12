@@ -106,7 +106,7 @@ public class StateActor extends RemoteActor implements StateService {
     }
 
     @Override
-    public List<fr.gaellalire.vote.actor.state.service.PollingStation> getPollingStationList() throws RemoteException {
+    public List<fr.gaellalire.vote.actor.state.service.PollingStation> getPollingStationList() {
         EntityManager entityManager = getEntityManager();
         CriteriaBuilder criteriaBuilder = entityManager.getCriteriaBuilder();
         CriteriaQuery<PollingStation> query = criteriaBuilder.createQuery(PollingStation.class);
@@ -396,16 +396,7 @@ public class StateActor extends RemoteActor implements StateService {
 
     private volatile boolean voteInitiated = false;
 
-    @Override
-    public List<fr.gaellalire.vote.actor.state.service.Citizen> getPollingStationCitizenList(final String pollingStationName) throws RemoteException {
-        if (voteInitiated) {
-            synchronized (citizenListByPollingStationNameCache) {
-                List<fr.gaellalire.vote.actor.state.service.Citizen> list = citizenListByPollingStationNameCache.get(pollingStationName);
-                if (list != null) {
-                    return list;
-                }
-            }
-        }
+    public List<fr.gaellalire.vote.actor.state.service.Citizen> internalGetPollingStationCitizenList(final String pollingStationName) {
         EntityManager entityManager = getEntityManager();
         CriteriaBuilder criteriaBuilder = entityManager.getCriteriaBuilder();
         CriteriaQuery<Citizen> query = criteriaBuilder.createQuery(Citizen.class);
@@ -429,17 +420,31 @@ public class StateActor extends RemoteActor implements StateService {
             entityManager.refresh(citizen);
             result.add(convertToServiceCitizen(citizen, false));
         }
-        if (voteInitiated) {
-            synchronized (citizenListByPollingStationNameCache) {
-                citizenListByPollingStationNameCache.put(pollingStationName, result);
-            }
-        }
         return result;
+    }
+
+    @Override
+    public List<fr.gaellalire.vote.actor.state.service.Citizen> getPollingStationCitizenList(final String pollingStationName) throws RemoteException {
+        if (voteInitiated) {
+            List<fr.gaellalire.vote.actor.state.service.Citizen> list = citizenListByPollingStationNameCache.get(pollingStationName);
+            if (list != null) {
+                return list;
+            }
+            throw new RuntimeException("PollingStationName not found " + pollingStationName);
+        }
+
+        return internalGetPollingStationCitizenList(pollingStationName);
     }
 
     private Map<String, List<fr.gaellalire.vote.actor.state.service.Citizen>> citizenListByPollingStationNameCache = new HashMap<String, List<fr.gaellalire.vote.actor.state.service.Citizen>>();
 
     public void initVote() {
+        List<fr.gaellalire.vote.actor.state.service.PollingStation> pollingStationList = getPollingStationList();
+        for (fr.gaellalire.vote.actor.state.service.PollingStation pollingStation : pollingStationList) {
+            String name = pollingStation.getName();
+            citizenListByPollingStationNameCache.put(name, internalGetPollingStationCitizenList(name));
+        }
+
         voteInitiated = true;
     }
 
