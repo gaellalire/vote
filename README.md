@@ -1,7 +1,8 @@
 
-# Use Postgres
-docker run -p5432:5432 --name vote-postgres -e POSTGRES_PASSWORD=mysecretpassword -d postgres
+# Build
 
-docker exec -it vote-postgres psql -U postgres
+mvn clean install
 
-create database statedb;
+# Run the demo
+
+fr.gaellalire.vote.VoteDemo

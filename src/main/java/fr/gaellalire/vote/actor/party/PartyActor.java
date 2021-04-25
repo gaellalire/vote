@@ -154,13 +154,13 @@ public class PartyActor extends RemoteActor implements PartyService {
 
     }
 
-    public static PartyActor create(final RSATrustSystem rsaTrustSystem, final AESUtils aesUtils, final String host, final String partyName, final File privateKeyFile)
-            throws Exception {
+    public static PartyActor create(final RSATrustSystem rsaTrustSystem, final AESUtils aesUtils, final String host, final String partyName, final File privateKeyFile,
+            final String connectionURL) throws Exception {
         Registry registry = LocateRegistry.getRegistry(host);
         StateService stateService = (StateService) registry.lookup("State");
 
         EntityManagerFactory entityManagerFactory = Persistence.createEntityManagerFactory("partyPersistenceUnit",
-                Collections.singletonMap("hibernate.connection.url", "jdbc:h2:./db/party" + partyName));
+                Collections.singletonMap("hibernate.connection.url", connectionURL));
 
         RSAPrivatePart rsaPrivatePart;
         if (!privateKeyFile.isFile()) {
@@ -200,7 +200,7 @@ public class PartyActor extends RemoteActor implements PartyService {
 
         int argPos = 0;
         String host = args[argPos++];
-        String pollingStationName = args[argPos++];
+        String partyName = args[argPos++];
         String privateKeyFileName = args[argPos++];
 
         SecureRandom random = SecureRandom.getInstance("DEFAULT", BouncyCastleProvider.PROVIDER_NAME);
@@ -208,7 +208,8 @@ public class PartyActor extends RemoteActor implements PartyService {
         AESUtils aesUtils = new AESUtils(random);
 
         File privateKeyFile = new File(privateKeyFileName);
-        create(rsaTrustSystem, aesUtils, host, pollingStationName, privateKeyFile);
+        String connectionURL = "jdbc:h2:./db/party" + partyName;
+        create(rsaTrustSystem, aesUtils, host, partyName, privateKeyFile, connectionURL);
 
     }
 

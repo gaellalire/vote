@@ -16,6 +16,7 @@
 
 package fr.gaellalire.vote.actor;
 
+import java.rmi.NoSuchObjectException;
 import java.rmi.RemoteException;
 import java.rmi.server.UnicastRemoteObject;
 import java.util.Map;
@@ -78,6 +79,15 @@ public abstract class RemoteActor extends UnicastRemoteObject {
 
     public void commit() {
         getEntityManager().getTransaction().commit();
+    }
+
+    public void close() {
+        entityManagerFactory.close();
+        try {
+            UnicastRemoteObject.unexportObject(this, true);
+        } catch (NoSuchObjectException e) {
+            // ignore
+        }
     }
 
 }

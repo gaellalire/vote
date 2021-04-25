@@ -26,6 +26,7 @@ import java.rmi.registry.Registry;
 import java.security.SecureRandom;
 import java.security.Security;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -305,10 +306,11 @@ public class StateActor extends RemoteActor implements StateService {
         return convertToServiceCitizen(citizenBySS, false);
     }
 
-    public static StateActor create(final RSATrustSystem rsaTrustSystem, final String host) throws Exception {
+    public static StateActor create(final RSATrustSystem rsaTrustSystem, final String host, final String connectionURL) throws Exception {
         Registry registry = LocateRegistry.getRegistry(host);
 
-        EntityManagerFactory entityManagerFactory = Persistence.createEntityManagerFactory("statePersistenceUnit");
+        EntityManagerFactory entityManagerFactory = Persistence.createEntityManagerFactory("statePersistenceUnit",
+                Collections.singletonMap("hibernate.connection.url", connectionURL));
 
         StateActor stateActor = new StateActor(entityManagerFactory, rsaTrustSystem);
         registry.rebind("State", stateActor);
@@ -322,7 +324,9 @@ public class StateActor extends RemoteActor implements StateService {
 
         RSATrustSystem rsaTrustSystem = new RSATrustSystem(random);
 
-        create(rsaTrustSystem, InetAddress.getLocalHost().getHostAddress());
+        String connectionURL = "jdbc:h2:./db/state";
+
+        create(rsaTrustSystem, InetAddress.getLocalHost().getHostAddress(), connectionURL);
     }
 
     @Override

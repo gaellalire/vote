@@ -212,12 +212,12 @@ public class PollingStationActor extends RemoteActor implements PollingStationSe
     }
 
     public static PollingStationActor create(final RSATrustSystem rsaTrustSystem, final AESUtils aesUtils, final String stateHost, final String host,
-            final String pollingStationName, final File privateKeyFile) throws Exception {
-        return create(rsaTrustSystem, aesUtils, stateHost, host, pollingStationName, privateKeyFile, null);
+            final String pollingStationName, final File privateKeyFile, final String connectionURL) throws Exception {
+        return create(rsaTrustSystem, aesUtils, stateHost, host, pollingStationName, privateKeyFile, connectionURL, null);
     }
 
     public static PollingStationActor create(final RSATrustSystem rsaTrustSystem, final AESUtils aesUtils, final String stateHost, final String host,
-            final String pollingStationName, final File privateKeyFile, final RMIOverrides rmiOverrides) throws Exception {
+            final String pollingStationName, final File privateKeyFile, final String connectionURL, final RMIOverrides rmiOverrides) throws Exception {
 
         StateService stateService = null;
         if (rmiOverrides != null) {
@@ -229,7 +229,7 @@ public class PollingStationActor extends RemoteActor implements PollingStationSe
         }
 
         EntityManagerFactory entityManagerFactory = Persistence.createEntityManagerFactory("pollingStationPersistenceUnit",
-                Collections.singletonMap("hibernate.connection.url", "jdbc:h2:./db/pollingStation" + pollingStationName));
+                Collections.singletonMap("hibernate.connection.url", connectionURL));
 
         List<Party> partyList = stateService.getPartyList();
         List<PartyService> partyServices = new ArrayList<PartyService>(partyList.size());
@@ -297,7 +297,8 @@ public class PollingStationActor extends RemoteActor implements PollingStationSe
         AESUtils aesUtils = new AESUtils(random);
 
         File privateKeyFile = new File(privateKeyFileName);
-        create(rsaTrustSystem, aesUtils, stateHost, host, pollingStationName, privateKeyFile);
+        String connectionURL = "jdbc:h2:./db/pollingStation" + pollingStationName;
+        create(rsaTrustSystem, aesUtils, stateHost, host, pollingStationName, privateKeyFile, connectionURL);
 
     }
 
