@@ -30,6 +30,7 @@ import java.security.SecureRandom;
 import java.security.Security;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -53,8 +54,8 @@ import fr.gaellalire.vote.actor.party.jpa.Citizen;
 import fr.gaellalire.vote.actor.party.jpa.Judgment;
 import fr.gaellalire.vote.actor.party.jpa.Vote;
 import fr.gaellalire.vote.actor.party.service.PartyService;
-import fr.gaellalire.vote.actor.pooling_station.service.VotingModulusList;
-import fr.gaellalire.vote.actor.pooling_station.service.VotingSignatureList;
+import fr.gaellalire.vote.actor.polling_station.service.VotingModulusList;
+import fr.gaellalire.vote.actor.polling_station.service.VotingSignatureList;
 import fr.gaellalire.vote.actor.state.service.PollingStation;
 import fr.gaellalire.vote.actor.state.service.StateService;
 import fr.gaellalire.vote.trust.aes.AESUtils;
@@ -154,13 +155,16 @@ public class PartyActor extends RemoteActor implements PartyService {
 
     }
 
-    public static PartyActor create(final RSATrustSystem rsaTrustSystem, final AESUtils aesUtils, final String host, final String partyName, final File privateKeyFile,
-            final String connectionURL) throws Exception {
-        Registry registry = LocateRegistry.getRegistry(host);
-        StateService stateService = (StateService) registry.lookup("State");
+    public static PartyActor create(final RSATrustSystem rsaTrustSystem, final AESUtils aesUtils, final String stateHost, final String host, final String partyName,
+            final File privateKeyFile, final Map<String, String> entityManagerProperties) throws Exception {
 
-        EntityManagerFactory entityManagerFactory = Persistence.createEntityManagerFactory("partyPersistenceUnit",
-                Collections.singletonMap("hibernate.connection.url", connectionURL));
+        StateService stateService = null;
+        if (stateService == null) {
+            Registry registry = LocateRegistry.getRegistry(stateHost);
+            stateService = (StateService) registry.lookup("State");
+        }
+
+        EntityManagerFactory entityManagerFactory = Persistence.createEntityManagerFactory("partyPersistenceUnit", entityManagerProperties);
 
         RSAPrivatePart rsaPrivatePart;
         if (!privateKeyFile.isFile()) {
@@ -191,6 +195,7 @@ public class PartyActor extends RemoteActor implements PartyService {
         }
 
         PartyActor partyActor = new PartyActor(entityManagerFactory, rsaPrivatePart, partyName, stateService, rsaTrustSystem);
+        Registry registry = LocateRegistry.getRegistry(host);
         registry.rebind("Party" + partyName, partyActor);
         return partyActor;
     }
@@ -208,8 +213,13 @@ public class PartyActor extends RemoteActor implements PartyService {
         AESUtils aesUtils = new AESUtils(random);
 
         File privateKeyFile = new File(privateKeyFileName);
-        String connectionURL = "jdbc:h2:./db/party" + partyName;
-        create(rsaTrustSystem, aesUtils, host, partyName, privateKeyFile, connectionURL);
+
+        Map<String, String> entityManagerProperties = new HashMap<>();
+        entityManagerProperties.put("connection.driver_class", "org.h2.Driver");
+        entityManagerProperties.put("hibernate.connection.url", "jdbc:h2:./db/party" + partyName);
+        entityManagerProperties.put("hibernate.dialect", "org.hibernate.dialect.H2Dialect");
+
+        create(rsaTrustSystem, aesUtils, host, host, partyName, privateKeyFile, entityManagerProperties);
 
     }
 

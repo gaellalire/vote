@@ -19,7 +19,10 @@ package fr.gaellalire.vote.actor;
 import java.rmi.NoSuchObjectException;
 import java.rmi.RemoteException;
 import java.rmi.server.UnicastRemoteObject;
+import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
+import java.util.Map.Entry;
 
 import javax.persistence.EntityManager;
 import javax.persistence.EntityManagerFactory;
@@ -32,6 +35,8 @@ public abstract class RemoteActor extends UnicastRemoteObject {
     private static final long serialVersionUID = -2689029993776945523L;
 
     private EntityManagerFactory entityManagerFactory;
+
+    private Map<Thread, EntityManager> entityManagerByThread = new HashMap<Thread, EntityManager>();
 
     private ThreadLocal<EntityManager> entityManagerThreadLocal = new ThreadLocal<EntityManager>();
 
@@ -47,6 +52,19 @@ public abstract class RemoteActor extends UnicastRemoteObject {
         this.entityManagerFactory = entityManagerFactory;
     }
 
+    public void clean() {
+        synchronized (entityManagerByThread) {
+            Iterator<Entry<Thread, EntityManager>> iterator = entityManagerByThread.entrySet().iterator();
+            while (iterator.hasNext()) {
+                Entry<Thread, EntityManager> entry = iterator.next();
+                if (!entry.getKey().isAlive()) {
+                    entry.getValue().close();
+                    iterator.remove();
+                }
+            }
+        }
+    }
+
     public EntityManager getEntityManager() {
         EntityManager em = entityManagerThreadLocal.get();
 
@@ -55,6 +73,9 @@ public abstract class RemoteActor extends UnicastRemoteObject {
                 em = entityManagerFactory.createEntityManager();
             } else {
                 em = entityManagerFactory.createEntityManager(properties);
+            }
+            synchronized (entityManagerByThread) {
+                entityManagerByThread.put(Thread.currentThread(), em);
             }
             entityManagerThreadLocal.set(em);
         }
@@ -82,6 +103,11 @@ public abstract class RemoteActor extends UnicastRemoteObject {
     }
 
     public void close() {
+        synchronized (entityManagerByThread) {
+            for (Entry<Thread, EntityManager> entry : entityManagerByThread.entrySet()) {
+                entry.getValue().close();
+            }
+        }
         entityManagerFactory.close();
         try {
             UnicastRemoteObject.unexportObject(this, true);

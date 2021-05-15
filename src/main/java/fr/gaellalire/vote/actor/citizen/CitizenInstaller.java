@@ -14,13 +14,30 @@
  * limitations under the License.
  */
 
-package fr.gaellalire.vote.actor.pooling_station.service;
+package fr.gaellalire.vote.actor.citizen;
+
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.OutputStream;
+
+import org.apache.commons.io.IOUtils;
 
 /**
  * @author Gael Lalire
  */
-public enum PollingStationState {
+public class CitizenInstaller {
 
-    WAIT_FOR_REGISTERING, WAIT_FOR_VOTING_KEYS, WAIT_FOR_SIGNATURE, WORK_DONE;
+    private File config;
+
+    public CitizenInstaller(final File config) {
+        this.config = config;
+    }
+
+    public void install() throws Exception {
+        File entryDestination = new File(config, "citizen.properties");
+        OutputStream out = new FileOutputStream(entryDestination);
+        IOUtils.copy(CitizenInstaller.class.getResourceAsStream("citizen.properties"), out);
+        IOUtils.closeQuietly(out);
+    }
 
 }

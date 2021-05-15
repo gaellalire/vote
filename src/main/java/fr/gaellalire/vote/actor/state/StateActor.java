@@ -26,7 +26,6 @@ import java.rmi.registry.Registry;
 import java.security.SecureRandom;
 import java.security.Security;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -47,8 +46,8 @@ import org.bouncycastle.jce.provider.BouncyCastleProvider;
 
 import fr.gaellalire.vestige.spi.trust.TrustException;
 import fr.gaellalire.vote.actor.RemoteActor;
-import fr.gaellalire.vote.actor.pooling_station.service.VotingModulusList;
-import fr.gaellalire.vote.actor.pooling_station.service.VotingSignatureList;
+import fr.gaellalire.vote.actor.polling_station.service.VotingModulusList;
+import fr.gaellalire.vote.actor.polling_station.service.VotingSignatureList;
 import fr.gaellalire.vote.actor.state.jpa.Citizen;
 import fr.gaellalire.vote.actor.state.jpa.CitizenApproval;
 import fr.gaellalire.vote.actor.state.jpa.CitizenApprovalType;
@@ -306,14 +305,18 @@ public class StateActor extends RemoteActor implements StateService {
         return convertToServiceCitizen(citizenBySS, false);
     }
 
-    public static StateActor create(final RSATrustSystem rsaTrustSystem, final String host, final String connectionURL) throws Exception {
+    public static StateActor create(final RSATrustSystem rsaTrustSystem, final String host, final Map<String, String> entityManagerProperties) throws Exception {
         Registry registry = LocateRegistry.getRegistry(host);
 
-        EntityManagerFactory entityManagerFactory = Persistence.createEntityManagerFactory("statePersistenceUnit",
-                Collections.singletonMap("hibernate.connection.url", connectionURL));
+        EntityManagerFactory entityManagerFactory = Persistence.createEntityManagerFactory("statePersistenceUnit", entityManagerProperties);
 
         StateActor stateActor = new StateActor(entityManagerFactory, rsaTrustSystem);
-        registry.rebind("State", stateActor);
+        try {
+            registry.rebind("State", stateActor);
+        } catch (Exception e) {
+            stateActor.close();
+            throw e;
+        }
         return stateActor;
     }
 
@@ -324,9 +327,12 @@ public class StateActor extends RemoteActor implements StateService {
 
         RSATrustSystem rsaTrustSystem = new RSATrustSystem(random);
 
-        String connectionURL = "jdbc:h2:./db/state";
+        Map<String, String> entityManagerProperties = new HashMap<>();
+        entityManagerProperties.put("connection.driver_class", "org.h2.Driver");
+        entityManagerProperties.put("hibernate.connection.url", "jdbc:h2:./db/state");
+        entityManagerProperties.put("hibernate.dialect", "org.hibernate.dialect.H2Dialect");
 
-        create(rsaTrustSystem, InetAddress.getLocalHost().getHostAddress(), connectionURL);
+        create(rsaTrustSystem, InetAddress.getLocalHost().getHostAddress(), entityManagerProperties);
     }
 
     @Override

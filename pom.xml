@@ -122,18 +122,38 @@
           </execution>
         </executions>
       </plugin>
+      <plugin>
+        <groupId>fr.gaellalire.vestige</groupId>
+        <artifactId>vestige.plugin.verify</artifactId>
+        <version>1.1.0</version>
+        <executions>
+          <execution>
+            <goals>
+              <goal>create-verification-metadata</goal>
+            </goals>
+            <configuration>
+              <verifications>
+                <verification>
+                  <verifyFile>${basedir}/src/main/config/verify.xml</verifyFile>
+                  <mavenPropertyName>vestige.edition.standard.verificationMetadata</mavenPropertyName>
+                </verification>
+              </verifications>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
     </plugins>
   </build>
   <dependencies>
     <dependency>
       <groupId>com.h2database</groupId>
       <artifactId>h2</artifactId>
-      <version>1.4.200</version>
+      <version>${h2.version}</version>
     </dependency>
     <dependency>
       <groupId>org.postgresql</groupId>
       <artifactId>postgresql</artifactId>
-      <version>42.2.19</version>
+      <version>${postgresql.version}</version>
     </dependency>
     <dependency>
       <groupId>org.hibernate</groupId>
@@ -171,9 +191,18 @@
       <artifactId>logback-classic</artifactId>
       <version>1.2.3</version>
     </dependency>
+    <dependency>
+      <groupId>commons-io</groupId>
+      <artifactId>commons-io</artifactId>
+      <version>2.0</version>
+    </dependency>
   </dependencies>
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <rmiregistry.version>1.0.0-SNAPSHOT</rmiregistry.version>
+    <h2.version>1.4.200</h2.version>
+    <postgresql.version>42.2.19</postgresql.version>
+    <slf4j.version>1.7.25</slf4j.version>
   </properties>
   <distributionManagement>
     <repository>
@@ -193,4 +222,170 @@
   <prerequisites>
     <maven>3.0.4</maven>
   </prerequisites>
+  <profiles>
+    <profile>
+      <id>deploy-vestige-descriptors</id>
+      <activation>
+        <property>
+          <name>env.VESTIGE_REPOSITORY_PATH</name>
+        </property>
+      </activation>
+      <properties>
+        <vestige.repository.path>${env.VESTIGE_REPOSITORY_PATH}</vestige.repository.path>
+        <vestige.application.version>${project.version}</vestige.application.version>
+      </properties>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>fr.gaellalire.vestige</groupId>
+            <artifactId>vestige.plugin.verify</artifactId>
+            <version>1.1.0</version>
+            <executions>
+              <execution>
+                <goals>
+                  <goal>create-verification-metadata</goal>
+                </goals>
+                <phase>deploy</phase>
+                <configuration>
+                  <vestigeVersion>10.4.0</vestigeVersion>
+                  <verifications>
+                    <verification>
+                      <verifyFile>${basedir}/src/main/config/verify.xml</verifyFile>
+                      <mavenPropertyName>vote.verificationMetadata</mavenPropertyName>
+                    </verification>
+                    <verification>
+                      <verifyFile>${basedir}/src/main/config/verify-rmiregistry.xml</verifyFile>
+                      <mavenPropertyName>vote.rmiregistry.verificationMetadata</mavenPropertyName>
+                    </verification>
+                  </verifications>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+          <plugin>
+            <groupId>com.coderplus.maven.plugins</groupId>
+            <artifactId>copy-rename-maven-plugin</artifactId>
+            <version>1.0</version>
+            <executions>
+              <execution>
+                <id>rename-demo-file</id>
+                <phase>deploy</phase>
+                <goals>
+                  <goal>copy</goal>
+                </goals>
+                <configuration>
+                  <sourceFile>src/main/config/vote-demo.xml</sourceFile>
+                  <destinationFile>${project.build.directory}/vote-demo/vote-demo-${vestige.application.version}.xml</destinationFile>
+                </configuration>
+              </execution>
+              <execution>
+                <id>rename-rmiregistry-file</id>
+                <phase>deploy</phase>
+                <goals>
+                  <goal>copy</goal>
+                </goals>
+                <configuration>
+                  <sourceFile>src/main/config/vote-rmiregistry.xml</sourceFile>
+                  <destinationFile>${project.build.directory}/vote-rmiregistry/vote-rmiregistry-${vestige.application.version}.xml</destinationFile>
+                </configuration>
+              </execution>
+              <execution>
+                <id>rename-state-file</id>
+                <phase>deploy</phase>
+                <goals>
+                  <goal>copy</goal>
+                </goals>
+                <configuration>
+                  <sourceFile>src/main/config/vote-state.xml</sourceFile>
+                  <destinationFile>${project.build.directory}/vote-state/vote-state-${vestige.application.version}.xml</destinationFile>
+                </configuration>
+              </execution>
+              <execution>
+                <id>rename-party-file</id>
+                <phase>deploy</phase>
+                <goals>
+                  <goal>copy</goal>
+                </goals>
+                <configuration>
+                  <sourceFile>src/main/config/vote-party.xml</sourceFile>
+                  <destinationFile>${project.build.directory}/vote-party/vote-party-${vestige.application.version}.xml</destinationFile>
+                </configuration>
+              </execution>
+              <execution>
+                <id>rename-polling-station-file</id>
+                <phase>deploy</phase>
+                <goals>
+                  <goal>copy</goal>
+                </goals>
+                <configuration>
+                  <sourceFile>src/main/config/vote-polling-station.xml</sourceFile>
+                  <destinationFile>${project.build.directory}/vote-polling-station/vote-polling-station-${vestige.application.version}.xml</destinationFile>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-resources-plugin</artifactId>
+            <executions>
+              <execution>
+                <id>deploy-vestige-app</id>
+                <goals>
+                  <goal>copy-resources</goal>
+                </goals>
+                <phase>deploy</phase>
+                <configuration>
+                  <resources>
+                    <resource>
+                      <targetPath>vote-demo</targetPath>
+                      <directory>${project.build.directory}/vote-demo</directory>
+                      <filtering>true</filtering>
+                    </resource>
+                    <resource>
+                      <targetPath>vote-rmiregistry</targetPath>
+                      <directory>${project.build.directory}/vote-rmiregistry</directory>
+                      <filtering>true</filtering>
+                    </resource>
+                    <resource>
+                      <targetPath>vote-state</targetPath>
+                      <directory>${project.build.directory}/vote-state</directory>
+                      <filtering>true</filtering>
+                    </resource>
+                    <resource>
+                      <targetPath>vote-party</targetPath>
+                      <directory>${project.build.directory}/vote-party</directory>
+                      <filtering>true</filtering>
+                    </resource>
+                    <resource>
+                      <targetPath>vote-polling-station</targetPath>
+                      <directory>${project.build.directory}/vote-polling-station</directory>
+                      <filtering>true</filtering>
+                    </resource>
+                  </resources>
+                  <outputDirectory>${vestige.repository.path}</outputDirectory>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+    <profile>
+      <id>skip-deploy</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-deploy-plugin</artifactId>
+            <executions>
+              <execution>
+                <id>default-deploy</id>
+                <phase>none</phase>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
 </project>

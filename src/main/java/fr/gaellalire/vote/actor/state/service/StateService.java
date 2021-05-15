@@ -21,8 +21,8 @@ import java.rmi.Remote;
 import java.rmi.RemoteException;
 import java.util.List;
 
-import fr.gaellalire.vote.actor.pooling_station.service.VotingModulusList;
-import fr.gaellalire.vote.actor.pooling_station.service.VotingSignatureList;
+import fr.gaellalire.vote.actor.polling_station.service.VotingModulusList;
+import fr.gaellalire.vote.actor.polling_station.service.VotingSignatureList;
 
 /**
  * @author Gael Lalire

@@ -21,12 +21,6 @@ import java.math.BigInteger;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
 import java.rmi.server.UnicastRemoteObject;
-import java.security.CodeSource;
-import java.security.Permission;
-import java.security.PermissionCollection;
-import java.security.Permissions;
-import java.security.Policy;
-import java.security.ProtectionDomain;
 import java.security.SecureRandom;
 import java.security.Security;
 import java.util.ArrayList;
@@ -36,7 +30,6 @@ import java.util.Map;
 import java.util.concurrent.Callable;
 
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
-import org.h2.Driver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -45,48 +38,16 @@ import fr.gaellalire.vote.actor.citizen.CitizenListener;
 import fr.gaellalire.vote.actor.citizen.RMIOverrides;
 import fr.gaellalire.vote.actor.party.PartyActor;
 import fr.gaellalire.vote.actor.party.service.PartyService;
-import fr.gaellalire.vote.actor.pooling_station.PollingStationActor;
-import fr.gaellalire.vote.actor.pooling_station.service.PollingStationService;
-import fr.gaellalire.vote.actor.pooling_station.service.PollingStationState;
+import fr.gaellalire.vote.actor.polling_station.PollingStationActor;
+import fr.gaellalire.vote.actor.polling_station.service.PollingStationService;
+import fr.gaellalire.vote.actor.polling_station.service.PollingStationState;
 import fr.gaellalire.vote.actor.state.StateActor;
 import fr.gaellalire.vote.actor.state.service.StateService;
 import fr.gaellalire.vote.trust.aes.AESUtils;
 import fr.gaellalire.vote.trust.rsa.RSAPrivatePart;
 import fr.gaellalire.vote.trust.rsa.RSATrustSystem;
 
-public class VoteDemo implements Callable<Void> {
-
-    static {
-        Driver.load();
-    }
-
-    public void setVestigeSystem(final VoteVestigeSystem vestigeSystem) {
-        if (System.getSecurityManager() != null) {
-            // policy activated
-            Policy policy = new Policy() {
-
-                private Map<CodeSource, Permissions> permissionsByCodeSource = new HashMap<CodeSource, Permissions>();
-
-                @Override
-                public PermissionCollection getPermissions(final CodeSource codesource) {
-                    Permissions permissions = permissionsByCodeSource.get(codesource);
-                    if (permissions == null || permissions.isReadOnly()) {
-                        permissions = new Permissions();
-                        permissionsByCodeSource.put(codesource, permissions);
-                    }
-                    return permissions;
-                }
-
-                @Override
-                public boolean implies(final ProtectionDomain domain, final Permission permission) {
-                    // all permissions
-                    return true;
-                }
-
-            };
-            vestigeSystem.setPolicy(policy);
-        }
-    }
+public class VoteDemo extends AbstractLauncher implements Callable<Void> {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(VoteDemo.class);
 
@@ -143,44 +104,44 @@ public class VoteDemo implements Callable<Void> {
         new VoteDemo(targetFile, targetFile, targetFile, false).call();
     }
 
-    @SuppressWarnings("unused")
-    private File config, data, cache;
-
-    private boolean insideVestige;
-
     public VoteDemo(final File config, final File data, final File cache) {
-        this(config, data, cache, true);
+        super(config, data, cache, true);
     }
 
     public VoteDemo(final File config, final File data, final File cache, final boolean insideVestige) {
-        this.config = config;
-        this.data = data;
-        this.cache = cache;
-        this.insideVestige = insideVestige;
+        super(config, data, cache, insideVestige);
     }
 
     @Override
-    public Void call() throws Exception {
+    public void runService() throws Exception {
+
+        final File data = getData();
 
         Registry registry = LocateRegistry.createRegistry(1099);
         try {
 
-            SecureRandom random = SecureRandom.getInstance("DEFAULT", BouncyCastleProvider.PROVIDER_NAME);
+            final SecureRandom random = SecureRandom.getInstance("DEFAULT", BouncyCastleProvider.PROVIDER_NAME);
             // long citizenNumber = 67000000;
             // long pollingStationNumber = 1000;
 
-            int partyNumber = 5;
+            final int partyNumber = 5;
             int pollingStationNumber = 3;
-            int citizenThread = 5;
-            long citizenNumber = 500;
+            final int citizenThread = 5;
+            final long citizenNumber = 500;
 
-            RSATrustSystem rsaTrustSystem = new RSATrustSystem(random);
-            AESUtils aesUtils = new AESUtils(random);
+            final RSATrustSystem rsaTrustSystem = new RSATrustSystem(random);
+            final AESUtils aesUtils = new AESUtils(random);
 
-            DemoRMIOverrides overrides = new DemoRMIOverrides();
+            final DemoRMIOverrides overrides = new DemoRMIOverrides();
+
+            Map<String, String> entityManagerProperties = new HashMap<>();
+            entityManagerProperties.put("hibernate.hbm2ddl.auto", "create");
+            entityManagerProperties.put("connection.driver_class", "org.h2.Driver");
+            entityManagerProperties.put("hibernate.connection.url", "jdbc:h2:" + data.getAbsolutePath() + "/db/state");
+            entityManagerProperties.put("hibernate.dialect", "org.hibernate.dialect.H2Dialect");
 
             LOGGER.info("Creating state");
-            StateActor stateActor = StateActor.create(rsaTrustSystem, "localhost", "jdbc:h2:" + data.getAbsolutePath() + "/db/state");
+            StateActor stateActor = StateActor.create(rsaTrustSystem, "localhost", new HashMap<>(entityManagerProperties));
             overrides.stateService = stateActor;
             LOGGER.info("State created");
             try {
@@ -192,8 +153,9 @@ public class VoteDemo implements Callable<Void> {
                         File partyActorDataFile = new File(data, "ca" + i + ".data");
                         partyActorDataFile.delete();
                         String partyName = String.valueOf(i);
-                        String connectionURL = "jdbc:h2:" + data.getAbsolutePath() + "/db/party" + partyName;
-                        PartyActor partyActor = PartyActor.create(rsaTrustSystem, aesUtils, "localhost", partyName, partyActorDataFile, connectionURL);
+                        entityManagerProperties.put("hibernate.connection.url", "jdbc:h2:" + data.getAbsolutePath() + "/db/party" + partyName);
+                        PartyActor partyActor = PartyActor.create(rsaTrustSystem, aesUtils, "localhost", "localhost", partyName, partyActorDataFile,
+                                new HashMap<>(entityManagerProperties));
                         partyActors.add(partyActor);
                         overrides.partyServiceByName.put(partyActor.getName(), partyActor);
                     }
@@ -208,9 +170,9 @@ public class VoteDemo implements Callable<Void> {
                             File privateKeyFile = new File(data, "ps" + i + ".key");
                             privateKeyFile.delete();
                             String pollingStationName = String.valueOf(i);
-                            String connectionURL = "jdbc:h2:" + data.getAbsolutePath() + "/db/pollingStation" + pollingStationName;
+                            entityManagerProperties.put("hibernate.connection.url", "jdbc:h2:" + data.getAbsolutePath() + "/db/pollingStation" + pollingStationName);
                             PollingStationActor pollingStationActor = PollingStationActor.create(rsaTrustSystem, aesUtils, "localhost", "localhost", pollingStationName,
-                                    privateKeyFile, connectionURL, overrides);
+                                    privateKeyFile, new HashMap<>(entityManagerProperties), overrides);
                             pollingStationActors.add(pollingStationActor);
                             overrides.pollingStationServiceByName.put(pollingStationActor.getName(), pollingStationActor);
                         }
@@ -242,7 +204,7 @@ public class VoteDemo implements Callable<Void> {
 
                         LOGGER.info("Start the vote");
 
-                        long[] remain = new long[1];
+                        final long[] remain = new long[1];
                         remain[0] = citizenNumber;
                         final CitizenListener citizenListener = new CitizenListener() {
 
@@ -270,7 +232,7 @@ public class VoteDemo implements Callable<Void> {
 
                         // we cannot have a thread per citizen, it costs too much memory
                         for (int i = 0; i < citizenThread; i++) {
-                            int finalI = i;
+                            final int finalI = i;
                             new Thread("citizen-thread" + i) {
                                 public void run() {
                                     try {
@@ -361,36 +323,6 @@ public class VoteDemo implements Callable<Void> {
             UnicastRemoteObject.unexportObject(registry, true);
         }
 
-        if (insideVestige) {
-            // interrupt thread, BC EntropyGatherer thread leak
-            Thread currentThread = Thread.currentThread();
-            ThreadGroup threadGroup = currentThread.getThreadGroup();
-            int activeCount = threadGroup.activeCount();
-            while (activeCount != 1) {
-                Thread[] list = new Thread[activeCount];
-                int enumerate = threadGroup.enumerate(list);
-                for (int i = 0; i < enumerate; i++) {
-                    Thread t = list[i];
-                    if (t == currentThread) {
-                        continue;
-                    }
-                    t.interrupt();
-                }
-                for (int i = 0; i < enumerate; i++) {
-                    Thread t = list[i];
-                    if (t == currentThread) {
-                        continue;
-                    }
-                    try {
-                        t.join();
-                    } catch (InterruptedException e1) {
-                        break;
-                    }
-                }
-                activeCount = threadGroup.activeCount();
-            }
-        }
-
         // 67 millions -> 513 seconds (8 minutes) + 3,6G de données
 
         // with private key generation
@@ -403,7 +335,6 @@ public class VoteDemo implements Callable<Void> {
         // vote time
         // 16 seconds for 500 citizens : 20 jours pour 67 millions
 
-        return null;
     }
 
 }

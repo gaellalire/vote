@@ -14,21 +14,30 @@
  * limitations under the License.
  */
 
-package fr.gaellalire.vote.actor.citizen;
+package fr.gaellalire.vote.actor.state;
 
-import fr.gaellalire.vote.actor.party.service.PartyService;
-import fr.gaellalire.vote.actor.polling_station.service.PollingStationService;
-import fr.gaellalire.vote.actor.state.service.StateService;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.OutputStream;
+
+import org.apache.commons.io.IOUtils;
 
 /**
  * @author Gael Lalire
  */
-public interface RMIOverrides {
+public class StateInstaller {
 
-    StateService getStateService();
+    private File config;
 
-    PollingStationService getPollingStationService(String pollingStationName);
+    public StateInstaller(final File config) {
+        this.config = config;
+    }
 
-    PartyService getPartyService(String partyName);
+    public void install() throws Exception {
+        File entryDestination = new File(config, "state.properties");
+        OutputStream out = new FileOutputStream(entryDestination);
+        IOUtils.copy(StateInstaller.class.getResourceAsStream("state.properties"), out);
+        IOUtils.closeQuietly(out);
+    }
 
 }

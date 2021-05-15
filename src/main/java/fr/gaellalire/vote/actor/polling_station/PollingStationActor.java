@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package fr.gaellalire.vote.actor.pooling_station;
+package fr.gaellalire.vote.actor.polling_station;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -31,8 +31,9 @@ import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.security.Security;
 import java.util.ArrayList;
-import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
@@ -45,11 +46,11 @@ import fr.gaellalire.vestige.spi.trust.TrustException;
 import fr.gaellalire.vote.actor.RemoteActor;
 import fr.gaellalire.vote.actor.citizen.RMIOverrides;
 import fr.gaellalire.vote.actor.party.service.PartyService;
-import fr.gaellalire.vote.actor.pooling_station.service.PollingStationService;
-import fr.gaellalire.vote.actor.pooling_station.service.PollingStationState;
-import fr.gaellalire.vote.actor.pooling_station.service.VotingMetadata;
-import fr.gaellalire.vote.actor.pooling_station.service.VotingModulusList;
-import fr.gaellalire.vote.actor.pooling_station.service.VotingSignatureList;
+import fr.gaellalire.vote.actor.polling_station.service.PollingStationService;
+import fr.gaellalire.vote.actor.polling_station.service.PollingStationState;
+import fr.gaellalire.vote.actor.polling_station.service.VotingMetadata;
+import fr.gaellalire.vote.actor.polling_station.service.VotingModulusList;
+import fr.gaellalire.vote.actor.polling_station.service.VotingSignatureList;
 import fr.gaellalire.vote.actor.state.service.Citizen;
 import fr.gaellalire.vote.actor.state.service.Party;
 import fr.gaellalire.vote.actor.state.service.StateService;
@@ -212,12 +213,12 @@ public class PollingStationActor extends RemoteActor implements PollingStationSe
     }
 
     public static PollingStationActor create(final RSATrustSystem rsaTrustSystem, final AESUtils aesUtils, final String stateHost, final String host,
-            final String pollingStationName, final File privateKeyFile, final String connectionURL) throws Exception {
-        return create(rsaTrustSystem, aesUtils, stateHost, host, pollingStationName, privateKeyFile, connectionURL, null);
+            final String pollingStationName, final File privateKeyFile, final Map<String, String> entityManagerProperties) throws Exception {
+        return create(rsaTrustSystem, aesUtils, stateHost, host, pollingStationName, privateKeyFile, entityManagerProperties, null);
     }
 
     public static PollingStationActor create(final RSATrustSystem rsaTrustSystem, final AESUtils aesUtils, final String stateHost, final String host,
-            final String pollingStationName, final File privateKeyFile, final String connectionURL, final RMIOverrides rmiOverrides) throws Exception {
+            final String pollingStationName, final File privateKeyFile, final Map<String, String> entityManagerProperties, final RMIOverrides rmiOverrides) throws Exception {
 
         StateService stateService = null;
         if (rmiOverrides != null) {
@@ -228,8 +229,7 @@ public class PollingStationActor extends RemoteActor implements PollingStationSe
             stateService = (StateService) registry.lookup("State");
         }
 
-        EntityManagerFactory entityManagerFactory = Persistence.createEntityManagerFactory("pollingStationPersistenceUnit",
-                Collections.singletonMap("hibernate.connection.url", connectionURL));
+        EntityManagerFactory entityManagerFactory = Persistence.createEntityManagerFactory("pollingStationPersistenceUnit", entityManagerProperties);
 
         List<Party> partyList = stateService.getPartyList();
         List<PartyService> partyServices = new ArrayList<PartyService>(partyList.size());
@@ -297,8 +297,13 @@ public class PollingStationActor extends RemoteActor implements PollingStationSe
         AESUtils aesUtils = new AESUtils(random);
 
         File privateKeyFile = new File(privateKeyFileName);
-        String connectionURL = "jdbc:h2:./db/pollingStation" + pollingStationName;
-        create(rsaTrustSystem, aesUtils, stateHost, host, pollingStationName, privateKeyFile, connectionURL);
+
+        Map<String, String> entityManagerProperties = new HashMap<>();
+        entityManagerProperties.put("connection.driver_class", "org.h2.Driver");
+        entityManagerProperties.put("hibernate.connection.url", "jdbc:h2:./db/pollingStation" + pollingStationName);
+        entityManagerProperties.put("hibernate.dialect", "org.hibernate.dialect.H2Dialect");
+
+        create(rsaTrustSystem, aesUtils, stateHost, host, pollingStationName, privateKeyFile, entityManagerProperties);
 
     }
 

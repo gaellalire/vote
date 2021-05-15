@@ -7,7 +7,7 @@
     </encoder>
   </appender>
 
-  <logger name="org.hibernate" level="ERROR" />
+  <logger name="org.hibernate" level="WARN" />
   <logger name="fr.gaellalire.vote.actor.citizen" level="INFO" />
   
 

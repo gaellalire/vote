@@ -14,21 +14,25 @@
  * limitations under the License.
  */
 
-package fr.gaellalire.vote.actor.citizen;
+package fr.gaellalire.vote.actor.polling_station.service;
 
-import fr.gaellalire.vote.actor.party.service.PartyService;
-import fr.gaellalire.vote.actor.polling_station.service.PollingStationService;
-import fr.gaellalire.vote.actor.state.service.StateService;
+import java.io.Serializable;
+import java.math.BigInteger;
 
 /**
  * @author Gael Lalire
  */
-public interface RMIOverrides {
+public class VotingMetadata implements Serializable {
 
-    StateService getStateService();
+    private static final long serialVersionUID = -2762335218478895222L;
 
-    PollingStationService getPollingStationService(String pollingStationName);
+    private BigInteger pollingStationPublicKeyModulus;
 
-    PartyService getPartyService(String partyName);
+    public VotingMetadata(final BigInteger pollingStationPublicKeyModulus) {
+        this.pollingStationPublicKeyModulus = pollingStationPublicKeyModulus;
+    }
 
+    public BigInteger getPollingStationPublicKeyModulus() {
+        return pollingStationPublicKeyModulus;
+    }
 }

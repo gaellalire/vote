@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package fr.gaellalire.vote.actor.pooling_station.service;
+package fr.gaellalire.vote.actor.polling_station.service;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;

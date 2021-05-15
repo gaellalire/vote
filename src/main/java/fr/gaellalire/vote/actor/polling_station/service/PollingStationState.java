@@ -14,25 +14,13 @@
  * limitations under the License.
  */
 
-package fr.gaellalire.vote.actor.pooling_station.service;
-
-import java.io.Serializable;
-import java.math.BigInteger;
+package fr.gaellalire.vote.actor.polling_station.service;
 
 /**
  * @author Gael Lalire
  */
-public class VotingMetadata implements Serializable {
+public enum PollingStationState {
 
-    private static final long serialVersionUID = -2762335218478895222L;
+    WAIT_FOR_REGISTERING, WAIT_FOR_VOTING_KEYS, WAIT_FOR_SIGNATURE, WORK_DONE;
 
-    private BigInteger pollingStationPublicKeyModulus;
-
-    public VotingMetadata(final BigInteger pollingStationPublicKeyModulus) {
-        this.pollingStationPublicKeyModulus = pollingStationPublicKeyModulus;
-    }
-
-    public BigInteger getPollingStationPublicKeyModulus() {
-        return pollingStationPublicKeyModulus;
-    }
 }
