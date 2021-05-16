@@ -80,7 +80,7 @@ public class PartyActor extends RemoteActor implements PartyService {
     private String partyName;
 
     protected PartyActor(final EntityManagerFactory entityManagerFactory, final RSAPrivatePart rsaPrivatePart, final String partyName, final StateService stateService,
-            final RSATrustSystem rsaTrustSystem) throws RemoteException, TrustException {
+            final RSATrustSystem rsaTrustSystem) throws RemoteException {
         super(entityManagerFactory);
         this.stateService = stateService;
         this.rsaTrustSystem = rsaTrustSystem;

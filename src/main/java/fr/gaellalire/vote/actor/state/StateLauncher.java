@@ -75,6 +75,7 @@ public class StateLauncher extends AbstractLauncher implements Callable<Void> {
         LOGGER.info("Creating state");
         StateActor stateActor = StateActor.create(rsaTrustSystem, properties.getProperty("host"), entityManagerProperties);
         LOGGER.info("State created");
+
         try {
             waitForInterruption();
         } finally {

@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<application xmlns="http://gaellalire.fr/vestige/APPLICATION" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://gaellalire.fr/vestige/APPLICATION http://gaellalire.fr/vestige/application-2.2.0.xsd" javaSpecificationVersion="1.8">
+  <installer class="fr.gaellalire.vote.actor.citizen.CitizenInstaller">
+    <mavenResolver mode="FIXED_DEPENDENCIES" groupId="fr.gaellalire.vote" artifactId="vote" version="${project.version}" />
+    <verificationMetadata>
+      <text>${vote.verificationMetadata}</text>
+    </verificationMetadata>
+  </installer>
+  <launcher class="fr.gaellalire.vote.actor.citizen.CitizenLauncher" privateSystem="true">
+    <mavenResolver mode="FIXED_DEPENDENCIES" groupId="fr.gaellalire.vote" artifactId="vote" version="${project.version}" />
+    <inject serviceClassName="fr.gaellalire.vestige.spi.system.VestigeSystem" setterName="setVestigeSystem" targetServiceClassName="fr.gaellalire.vote.VoteVestigeSystem" />
+    <verificationMetadata>
+      <text>${vote.verificationMetadata}</text>
+    </verificationMetadata>
+  </launcher>
+  <configurations>
+    <permissions>
+      <permission type="java.lang.RuntimePermission" name="getClassLoader" /> <!-- hibernate -->
+      <permission type="java.lang.RuntimePermission" name="createClassLoader" />  <!-- hibernate -->
+      <permission type="java.lang.RuntimePermission" name="accessDeclaredMembers" />  <!-- hibernate -->
+      <permission type="java.lang.RuntimePermission" name="createSecurityManager" />  <!-- hibernate -->
+      <permission type="java.lang.RuntimePermission" name="getProtectionDomain" />  <!-- hibernate -->
+      <permission type="java.lang.RuntimePermission" name="getStackWalkerWithClassReference" />  <!-- hibernate -->
+      <permission type="java.lang.RuntimePermission" name="modifyThread" /> <!-- hibernate -->
+      <permission type="java.lang.RuntimePermission" name="shutdownHooks" /> <!-- h2 -->
+      <permission type="java.lang.RuntimePermission" name="defineClass" /> <!-- hibernate -->
+      <permission type="java.net.SocketPermission" name="*" actions="listen,resolve,connect,accept" /> <!-- rmi -->
+      <permission type="java.security.SecurityPermission" name="getProperty.*" /> <!-- hibernate -->
+      <permission type="java.lang.reflect.ReflectPermission" name="suppressAccessChecks" /> <!-- hibernate -->
+      <permission type="java.util.PropertyPermission" name="*" actions="read,write" /> <!-- hibernate -->
+    </permissions>
+    <mavenConfig>
+      <!-- SLF4J to JUL -->
+      <modifyDependency artifactId="slf4j-api" groupId="org.slf4j">
+        <addDependency artifactId="slf4j-jdk14" groupId="org.slf4j" version="${slf4j.version}" />
+      </modifyDependency>
+      <!-- remove logback -->
+      <replaceDependency artifactId="logback-classic" groupId="ch.qos.logback">
+        <addDependency artifactId="slf4j-api" groupId="org.slf4j" version="${slf4j.version}" />
+      </replaceDependency>
+      <modifyDependency artifactId="hibernate-core" groupId="org.hibernate">
+        <addDependency artifactId="h2" groupId="com.h2database" version="${h2.version}" />
+        <addDependency artifactId="postgresql" groupId="org.postgresql" version="${postgresql.version}" />
+      </modifyDependency>
+      <additionalRepository id="gaellalire-repo" url="https://gaellalire.fr/maven/repository/" />
+    </mavenConfig>
+  </configurations>
+</application>

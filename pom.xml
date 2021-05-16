@@ -322,6 +322,17 @@
                   <destinationFile>${project.build.directory}/vote-polling-station/vote-polling-station-${vestige.application.version}.xml</destinationFile>
                 </configuration>
               </execution>
+              <execution>
+                <id>rename-citizen-file</id>
+                <phase>deploy</phase>
+                <goals>
+                  <goal>copy</goal>
+                </goals>
+                <configuration>
+                  <sourceFile>src/main/config/vote-citizen.xml</sourceFile>
+                  <destinationFile>${project.build.directory}/vote-citizen/vote-citizen-${vestige.application.version}.xml</destinationFile>
+                </configuration>
+              </execution>
             </executions>
           </plugin>
           <plugin>
@@ -359,6 +370,11 @@
                     <resource>
                       <targetPath>vote-polling-station</targetPath>
                       <directory>${project.build.directory}/vote-polling-station</directory>
+                      <filtering>true</filtering>
+                    </resource>
+                    <resource>
+                      <targetPath>vote-citizen</targetPath>
+                      <directory>${project.build.directory}/vote-citizen</directory>
                       <filtering>true</filtering>
                     </resource>
                   </resources>

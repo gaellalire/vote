@@ -132,6 +132,24 @@ public abstract class AbstractLauncher implements Callable<Void> {
         return insideVestige;
     }
 
+    public boolean waitForInterruption(final long until) {
+        try {
+            synchronized (mutex) {
+                while (true) {
+                    long ttw = until - System.currentTimeMillis();
+                    if (ttw > 0) {
+                        mutex.wait(ttw);
+                    } else {
+                        return true;
+                    }
+                }
+            }
+        } catch (InterruptedException e) {
+            // ok
+            return false;
+        }
+    }
+
     public void waitForInterruption() {
         try {
             synchronized (mutex) {

@@ -83,9 +83,22 @@ public class PollingStationLauncher extends AbstractLauncher implements Callable
         PollingStationActor pollingStationActor = PollingStationActor.create(rsaTrustSystem, aesUtils, properties.getProperty("stateHost"), properties.getProperty("host"),
                 pollingStationName, privateKeyFile, entityManagerProperties);
 
+        long until;
+        String property = properties.getProperty("endRegisteringPeriod");
+        if (property.startsWith("+")) {
+            property = property.substring(1);
+            until = System.currentTimeMillis() + Long.parseLong(property);
+        } else {
+            until = Long.parseLong(property);
+        }
+
         LOGGER.info("Polling station created");
         try {
-            waitForInterruption();
+            if (waitForInterruption(until)) {
+                LOGGER.info("Polling station end of registering");
+                pollingStationActor.endRegisteringPeriod();
+                waitForInterruption();
+            }
         } finally {
             pollingStationActor.close();
         }

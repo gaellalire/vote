@@ -83,9 +83,35 @@ public class PartyLauncher extends AbstractLauncher implements Callable<Void> {
         PartyActor partyActor = PartyActor.create(rsaTrustSystem, aesUtils, properties.getProperty("stateHost"), properties.getProperty("host"), partyName, privateKeyFile,
                 entityManagerProperties);
 
+        // all polling station and citizen must be known by state when started
+        long until;
+        String property = properties.getProperty("init");
+        if (property.startsWith("+")) {
+            property = property.substring(1);
+            until = System.currentTimeMillis() + Long.parseLong(property);
+        } else {
+            until = Long.parseLong(property);
+        }
+
         LOGGER.info("Party created");
         try {
-            waitForInterruption();
+            if (waitForInterruption(until)) {
+                partyActor.init();
+                LOGGER.info("Party initiated");
+
+                property = properties.getProperty("endVote");
+                if (property.startsWith("+")) {
+                    property = property.substring(1);
+                    until = System.currentTimeMillis() + Long.parseLong(property);
+                } else {
+                    until = Long.parseLong(property);
+                }
+                if (waitForInterruption(until)) {
+                    LOGGER.info("Party end of vote");
+                    partyActor.endVote();
+                    waitForInterruption();
+                }
+            }
         } finally {
             partyActor.close();
         }
