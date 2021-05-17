@@ -1,6 +1,10 @@
 #!/bin/bash
 
-export PATH=/Applications/Vestige.app/Contents/Resources/vestige_home/:$PATH
+if [ -f /usr/share/vestige/vestigessh ]; then
+  export PATH=/usr/share/vestige/:$PATH
+else
+  export PATH=/Applications/Vestige.app/Contents/Resources/vestige_home/:$PATH
+fi
 
 vestigessh stop vpl
 vestigessh stop vp
