@@ -19,6 +19,7 @@ package fr.gaellalire.vote;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.net.MalformedURLException;
 import java.security.CodeSource;
 import java.security.Permission;
 import java.security.PermissionCollection;
@@ -95,7 +96,7 @@ public abstract class AbstractLauncher implements Callable<Void> {
         return properties;
     }
 
-    public Map<String, String> createEntityManagerProperties(final Properties properties) {
+    public Map<String, String> createEntityManagerProperties(final Properties properties) throws MalformedURLException {
         String persistenceName = properties.getProperty("profile.persistence.name");
 
         Map<String, String> persistenceMapping = new HashMap<>();
@@ -109,7 +110,7 @@ public abstract class AbstractLauncher implements Callable<Void> {
         for (Entry<String, String> entry : persistenceMapping.entrySet()) {
             String value = properties.getProperty("persistence." + persistenceName + "." + entry.getKey());
             if (value != null) {
-                value = value.replaceAll(Pattern.quote("${vestige.data}"), data.getAbsolutePath());
+                value = value.replaceAll(Pattern.quote("${vestige.data}"), data.toURI().toURL().toString());
                 entityManagerProperties.put(entry.getValue(), value);
             }
         }
