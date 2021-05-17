@@ -137,7 +137,7 @@ public class VoteDemo extends AbstractLauncher implements Callable<Void> {
             Map<String, String> entityManagerProperties = new HashMap<>();
             entityManagerProperties.put("hibernate.hbm2ddl.auto", "create");
             entityManagerProperties.put("connection.driver_class", "org.h2.Driver");
-            entityManagerProperties.put("hibernate.connection.url", "jdbc:h2:" + data.getAbsolutePath() + "/db/state");
+            entityManagerProperties.put("hibernate.connection.url", "jdbc:h2:" + data.toURI().toURL().toString() + "/db/state");
             entityManagerProperties.put("hibernate.dialect", "org.hibernate.dialect.H2Dialect");
 
             LOGGER.info("Creating state");
@@ -153,7 +153,7 @@ public class VoteDemo extends AbstractLauncher implements Callable<Void> {
                         File partyActorDataFile = new File(data, "ca" + i + ".data");
                         partyActorDataFile.delete();
                         String partyName = String.valueOf(i);
-                        entityManagerProperties.put("hibernate.connection.url", "jdbc:h2:" + data.getAbsolutePath() + "/db/party" + partyName);
+                        entityManagerProperties.put("hibernate.connection.url", "jdbc:h2:" + data.toURI().toURL().toString() + "/db/party" + partyName);
                         PartyActor partyActor = PartyActor.create(rsaTrustSystem, aesUtils, "localhost", "localhost", partyName, partyActorDataFile,
                                 new HashMap<>(entityManagerProperties));
                         partyActors.add(partyActor);
@@ -170,7 +170,7 @@ public class VoteDemo extends AbstractLauncher implements Callable<Void> {
                             File privateKeyFile = new File(data, "ps" + i + ".key");
                             privateKeyFile.delete();
                             String pollingStationName = String.valueOf(i);
-                            entityManagerProperties.put("hibernate.connection.url", "jdbc:h2:" + data.getAbsolutePath() + "/db/pollingStation" + pollingStationName);
+                            entityManagerProperties.put("hibernate.connection.url", "jdbc:h2:" + data.toURI().toURL().toString() + "/db/pollingStation" + pollingStationName);
                             PollingStationActor pollingStationActor = PollingStationActor.create(rsaTrustSystem, aesUtils, "localhost", "localhost", pollingStationName,
                                     privateKeyFile, new HashMap<>(entityManagerProperties), overrides);
                             pollingStationActors.add(pollingStationActor);
